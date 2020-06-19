@@ -161,9 +161,9 @@ const (
 
 // finite state machine error subcode values [RFC6608]
 const (
-	NotifSubcodeUnexpectedMessageOpenSent    = 1
-	NotifSubcodeUnexpectedMessageOpenConfirm = 2
-	NotifSubcodeUnexpectedMessageEstablished = 3
+	NotifSubcodeUnexpectedMessageOpenSent    uint8 = 1
+	NotifSubcodeUnexpectedMessageOpenConfirm uint8 = 2
+	NotifSubcodeUnexpectedMessageEstablished uint8 = 3
 )
 
 type openMessage struct {
