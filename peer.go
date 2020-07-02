@@ -20,6 +20,7 @@ const (
 // peer manages the FSMs for a peer.
 type peer struct {
 	config  *PeerConfig
+	id      uint32
 	plugin  Plugin
 	options *peerOptions
 
@@ -44,9 +45,10 @@ const (
 	in  = 1
 )
 
-func newPeer(config *PeerConfig, plugin Plugin, options *peerOptions) *peer {
+func newPeer(config *PeerConfig, id uint32, plugin Plugin, options *peerOptions) *peer {
 	p := &peer{
 		config:            config,
+		id:                id,
 		plugin:            plugin,
 		options:           options,
 		inConnCh:          make(chan net.Conn),
@@ -154,7 +156,7 @@ func (p *peer) handleStateTransition(i int, t stateTransition) {
 					 the dominant router is kept.
 			*/
 			remoteID := p.fsms[i].remoteID
-			localID := p.config.RouterID
+			localID := p.id
 			dominant := localID > remoteID ||
 				(localID == remoteID) && (p.config.LocalAS > p.config.RemoteAS)
 			if dominant && i == out {

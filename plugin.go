@@ -1,6 +1,6 @@
 package corebgp
 
-// Plugin is a BGP server plugin.
+// Plugin is a BGP peer plugin.
 type Plugin interface {
 	// GetCapabilities is fired when a peer's FSM is in the Connect state prior
 	// to sending an Open message. The returned capabilities are included in the

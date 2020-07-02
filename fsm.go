@@ -274,7 +274,7 @@ const (
 func (f *fsm) sendOpenAndSetHoldTimer() fsmState {
 	capabilities := f.peer.plugin.GetCapabilities(f.peer.config)
 	o, err := newOpenMessage(f.peer.config.LocalAS, f.peer.options.holdTime,
-		f.peer.config.RouterID, capabilities)
+		f.peer.id, capabilities)
 	if err != nil {
 		f.conn.Close()
 		return idleState
@@ -616,7 +616,8 @@ func (f *fsm) openSent() (fsmState, error) {
 						  Section 4.2),
 						- changes its state to OpenConfirm.
 				*/
-				err := m.validate(f.peer.config)
+				err := m.validate(f.peer.id, f.peer.config.LocalAS,
+					f.peer.config.RemoteAS)
 				if err != nil {
 					f.handleNotificationInErr(err)
 					return idleState, fmt.Errorf("error validating open message: %w", err)

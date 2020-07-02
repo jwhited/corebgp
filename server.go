@@ -1,6 +1,7 @@
 package corebgp
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,7 @@ import (
 // Server is a BGP server that manages peers.
 type Server struct {
 	mu            sync.Mutex
+	id            uint32
 	peers         map[string]*peer
 	serving       bool
 	doneServingCh chan struct{}
@@ -19,14 +21,20 @@ type Server struct {
 }
 
 // NewServer creates a new Server.
-func NewServer() *Server {
+func NewServer(routerID net.IP) (*Server, error) {
+	v4 := routerID.To4()
+	if v4 == nil {
+		return nil, errors.New("invalid router ID")
+	}
+
 	s := &Server{
 		mu:            sync.Mutex{},
+		id:            binary.BigEndian.Uint32(v4),
 		peers:         make(map[string]*peer),
 		doneServingCh: make(chan struct{}),
 		closeCh:       make(chan struct{}),
 	}
-	return s
+	return s, nil
 }
 
 var (
@@ -125,7 +133,6 @@ type PeerConfig struct {
 	IP       net.IP
 	LocalAS  uint32
 	RemoteAS uint32
-	RouterID uint32
 }
 
 const (
@@ -211,7 +218,7 @@ func (s *Server) AddPeer(config *PeerConfig, plugin Plugin,
 	for _, opt := range opts {
 		opt.apply(o)
 	}
-	p := newPeer(config, plugin, o)
+	p := newPeer(config, s.id, plugin, o)
 	if s.serving {
 		p.start()
 	}

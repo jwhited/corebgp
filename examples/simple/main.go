@@ -36,18 +36,16 @@ func main() {
 		}
 	}
 	corebgp.SetLogger(log.Print)
-	srv := corebgp.NewServer()
+	srv, err := corebgp.NewServer(net.ParseIP(*routerID))
+	if err != nil {
+		log.Fatalf("error constructing server: %v", err)
+	}
 	p := &plugin{}
 	opts := make([]corebgp.PeerOption, 0)
 	if *passive {
 		opts = append(opts, corebgp.Passive())
 	}
-	rid := net.ParseIP(*routerID).To4()
-	if rid == nil {
-		log.Fatal("invalid router ID")
-	}
 	err = srv.AddPeer(&corebgp.PeerConfig{
-		RouterID: binary.BigEndian.Uint32(rid),
 		IP:       net.ParseIP(*peerIP),
 		LocalAS:  uint32(*localAS),
 		RemoteAS: uint32(*remoteAS),

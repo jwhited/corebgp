@@ -179,7 +179,7 @@ func (o *openMessage) messageType() uint8 {
 }
 
 // https://tools.ietf.org/html/rfc4271#section-6.2
-func (o *openMessage) validate(p *PeerConfig) error {
+func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 	if o.version != 4 {
 		version := make([]byte, 2)
 		binary.BigEndian.PutUint16(version, uint16(4))
@@ -190,7 +190,7 @@ func (o *openMessage) validate(p *PeerConfig) error {
 	var fourOctetAS, fourOctetASFound bool
 	if o.asn == asTrans {
 		fourOctetAS = true
-	} else if uint32(o.asn) != p.RemoteAS {
+	} else if uint32(o.asn) != remoteAS {
 		n := newNotification(NotifCodeOpenMessageErr, NotifSubcodeBadPeerAS,
 			nil)
 		return newNotificationError(n, true)
@@ -207,7 +207,7 @@ func (o *openMessage) validate(p *PeerConfig) error {
 		return newNotificationError(n, true)
 	}
 	// https://tools.ietf.org/html/rfc6286#section-2.2
-	if p.LocalAS == p.RemoteAS && p.RouterID == o.bgpID {
+	if localAS == remoteAS && localID == o.bgpID {
 		n := newNotification(NotifCodeOpenMessageErr, NotifSubcodeBadBgpID, nil)
 		return newNotificationError(n, true)
 	}
@@ -219,7 +219,7 @@ func (o *openMessage) validate(p *PeerConfig) error {
 				n := newNotification(NotifCodeOpenMessageErr, 0, nil)
 				return newNotificationError(n, true)
 			}
-			if binary.BigEndian.Uint32(c.Value) != p.RemoteAS {
+			if binary.BigEndian.Uint32(c.Value) != remoteAS {
 				n := newNotification(NotifCodeOpenMessageErr,
 					NotifSubcodeBadPeerAS, nil)
 				return newNotificationError(n, true)
