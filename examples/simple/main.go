@@ -25,7 +25,6 @@ var (
 
 func main() {
 	flag.Parse()
-	log.Println("starting up")
 	var (
 		lis net.Listener
 		err error
@@ -78,35 +77,24 @@ func main() {
 type plugin struct {
 }
 
-func (p *plugin) GetCapabilities(c *corebgp.PeerConfig) []*corebgp.Capability {
-	log.Println("get capabilities called")
-	caps := make([]*corebgp.Capability, 0)
+func newMPCap(afi uint16, safi uint8) *corebgp.Capability {
+	mpData := make([]byte, 4)
+	binary.BigEndian.PutUint16(mpData, afi)
+	mpData[3] = safi
+	return &corebgp.Capability{
+		Code:  1,
+		Value: mpData,
+	}
+}
 
+func (p *plugin) GetCapabilities(c *corebgp.PeerConfig) []*corebgp.Capability {
+	caps := make([]*corebgp.Capability, 0)
 	if *ipv4 {
-		// multiprotocol extensions
-		mpData := make([]byte, 4)
-		// ipv4 afi
-		binary.BigEndian.PutUint16(mpData, 1)
-		// safi unicast
-		mpData[3] = 1
-		caps = append(caps, &corebgp.Capability{
-			Code:  1,
-			Value: mpData,
-		})
+		caps = append(caps, newMPCap(1, 1))
 	}
 	if *ipv6 {
-		// multiprotocol extensions
-		mpData := make([]byte, 4)
-		// ipv4 afi
-		binary.BigEndian.PutUint16(mpData, 2)
-		// safi unicast
-		mpData[3] = 1
-		caps = append(caps, &corebgp.Capability{
-			Code:  1,
-			Value: mpData,
-		})
+		caps = append(caps, newMPCap(2, 1))
 	}
-
 	return caps
 }
 
@@ -127,6 +115,6 @@ func (p *plugin) OnClose(peer *corebgp.PeerConfig) {
 }
 
 func (p *plugin) handleUpdate(peer *corebgp.PeerConfig, u []byte) *corebgp.Notification {
-	log.Printf("got update message: %v", u)
+	log.Printf("got update message of len: %d", len(u))
 	return nil
 }
