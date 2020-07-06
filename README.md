@@ -7,6 +7,8 @@ CoreBGP is a BGP library written in Go that implements the BGP FSM with an event
 
 CoreBGP does not decode UPDATE messages (besides header validation), manage a routing table, or send its own UPDATE messages. These responsibilities are all passed down to the user. Therefore, the intended user is someone who wants that responsibility.
 
+See this [blog post](https://www.jordanwhited.com/posts/corebgp-plugging-in-to-bgp/) for the background and reasoning behind the development of CoreBGP.
+
 The primary building block of CoreBGP is a Plugin, defined by the following interface:
 ```go
 // Plugin is a BGP peer plugin.
