@@ -1,6 +1,6 @@
 # CoreBGP
 
-[![GoDev](https://img.shields.io/static/v1?label=godev&message=reference&color=00add8)][godev]
+[![GoDev](https://img.shields.io/static/v1?label=godev&message=reference&color=00add8)](https://pkg.go.dev/github.com/jwhited/corebgp)
 
 CoreBGP is a BGP library written in Go that implements the BGP FSM with an event-driven, pluggable model. It exposes an API that empowers the user to:
 * send and validate OPEN message capabilities
