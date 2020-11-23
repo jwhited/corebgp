@@ -8,7 +8,7 @@ import (
 type Logger func(...interface{})
 
 var (
-	logger      Logger = nil
+	logger Logger = nil
 )
 
 // SetLogger enables logging with the provided Logger.

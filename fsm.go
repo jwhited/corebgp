@@ -140,7 +140,7 @@ func (f *fsm) run() {
 			t.from > activeState {
 			// we were disabled while transitioning to a target state with an
 			// active connection
-			f.sendNotification(newNotification(NotifCodeCease, 0, nil))
+			f.sendNotification(newNotification(NotifCodeCease, 0, nil)) // nolint: errcheck
 		}
 
 		var (
@@ -528,13 +528,6 @@ func (f *fsm) drainAndResetHoldTimer() {
 	f.holdTimer.Reset(f.holdTime)
 }
 
-func (f *fsm) drainAndResetKeepAliveTimer() {
-	if !f.keepAliveTimer.Stop() {
-		<-f.keepAliveTimer.C
-	}
-	f.keepAliveTimer.Reset(f.keepAliveInterval)
-}
-
 // handleNotificationInErr checks if the error unwraps to a notificationError.
 // If a notificationError is found and its out field is true, the Notification
 // is sent to the peer and the function returns true, otherwise it returns
@@ -542,7 +535,7 @@ func (f *fsm) drainAndResetKeepAliveTimer() {
 func (f *fsm) handleNotificationInErr(err error) bool {
 	var nerr *notificationError
 	if errors.As(err, &nerr) && nerr.out {
-		f.sendNotification(nerr.notification)
+		f.sendNotification(nerr.notification) // nolint: errcheck
 		return true
 	}
 	return false
@@ -554,7 +547,7 @@ func (f *fsm) openSent() (fsmState, error) {
 		select {
 		case <-f.closeCh:
 			n := newNotification(NotifCodeCease, 0, nil)
-			f.sendNotification(n)
+			f.sendNotification(n) // nolint: errcheck
 			return disabledState, newNotificationError(n, true)
 		case <-f.holdTimer.C:
 			/*
@@ -572,7 +565,7 @@ func (f *fsm) openSent() (fsmState, error) {
 					 - changes its state to Idle.
 			*/
 			n := newNotification(NotifCodeHoldTimerExpired, 0, nil)
-			f.sendNotification(n)
+			f.sendNotification(n) // nolint: errcheck
 			return idleState, newNotificationError(n, true)
 		case err := <-f.readerErrCh:
 			f.handleNotificationInErr(err)
@@ -626,7 +619,7 @@ func (f *fsm) openSent() (fsmState, error) {
 
 				n := f.peer.plugin.OnOpenMessage(f.peer.config, m.getCapabilities())
 				if n != nil {
-					f.sendNotification(n)
+					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)
 				}
 
@@ -676,7 +669,7 @@ func (f *fsm) openSent() (fsmState, error) {
 				n := newNotification(NotifCodeFSMErr,
 					NotifSubcodeUnexpectedMessageOpenSent,
 					[]byte{m.messageType()})
-				f.sendNotification(n)
+				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
 			}
 		}
@@ -697,11 +690,11 @@ func (f *fsm) openConfirm() (fsmState, error) {
 			select {
 			case <-f.closeCh:
 				n := newNotification(NotifCodeCease, 0, nil)
-				f.sendNotification(n)
+				f.sendNotification(n) // nolint: errcheck
 				return disabledState, newNotificationError(n, true)
 			case <-f.holdTimer.C:
 				n := newNotification(NotifCodeHoldTimerExpired, 0, nil)
-				f.sendNotification(n)
+				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
 			case <-f.keepAliveTimer.C:
 				err := f.sendKeepAlive()
@@ -757,7 +750,7 @@ func (f *fsm) openConfirm() (fsmState, error) {
 					n := newNotification(NotifCodeFSMErr,
 						NotifSubcodeUnexpectedMessageOpenConfirm,
 						[]byte{m.messageType()})
-					f.sendNotification(n)
+					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)
 				}
 			}
@@ -841,11 +834,11 @@ func (f *fsm) established() (fsmState, error) {
 			select {
 			case <-f.closeCh:
 				n := newNotification(NotifCodeCease, 0, nil)
-				f.sendNotification(n)
+				f.sendNotification(n) // nolint: errcheck
 				return disabledState, newNotificationError(n, true)
 			case <-f.holdTimer.C:
 				n := newNotification(NotifCodeHoldTimerExpired, 0, nil)
-				f.sendNotification(n)
+				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
 			case <-f.keepAliveTimer.C:
 				err := f.sendKeepAlive()
@@ -900,7 +893,7 @@ func (f *fsm) established() (fsmState, error) {
 					if handler != nil {
 						n := handler(f.peer.config, m)
 						if n != nil {
-							f.sendNotification(n)
+							f.sendNotification(n) // nolint: errcheck
 							return idleState, newNotificationError(n, true)
 						}
 					}
@@ -936,7 +929,7 @@ func (f *fsm) established() (fsmState, error) {
 					n := newNotification(NotifCodeFSMErr,
 						NotifSubcodeUnexpectedMessageEstablished,
 						[]byte{m.messageType()})
-					f.sendNotification(n)
+					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)
 				}
 			}
