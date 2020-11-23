@@ -232,7 +232,7 @@ func (p *peer) handleError(i int, err error) {
 // https://github.com/BIRD/bird/blob/v2.0.2/proto/bgp/bgp.c#L384
 func (p *peer) updateStartupDelay() {
 	if p.lastProtoError != nil &&
-		(time.Now().Sub(*p.lastProtoError) >= errorAmnesiaTime) {
+		(time.Since(*p.lastProtoError) >= errorAmnesiaTime) {
 		p.startupDelay = 0
 	}
 
