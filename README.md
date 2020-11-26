@@ -19,7 +19,7 @@ type Plugin interface {
 	// GetCapabilities is fired when a peer's FSM is in the Connect state prior
 	// to sending an Open message. The returned capabilities are included in the
 	// Open message sent to the peer.
-	GetCapabilities(peer *PeerConfig) []*Capability
+	GetCapabilities(peer PeerConfig) []*Capability
 
 	// OnOpenMessage is fired when an Open message is received from a peer
 	// during the OpenSent state. Returning a non-nil Notification will cause it
@@ -28,7 +28,7 @@ type Plugin interface {
 	// Per RFC5492 a BGP speaker should only send a Notification if a required
 	// capability is missing; unknown or unsupported capabilities should be
 	// ignored.
-	OnOpenMessage(peer *PeerConfig, capabilities []*Capability) *Notification
+	OnOpenMessage(peer PeerConfig, capabilities []*Capability) *Notification
 
 	// OnEstablished is fired when a peer's FSM transitions to the Established
 	// state. The returned UpdateMessageHandler will be fired when an Update
@@ -37,11 +37,11 @@ type Plugin interface {
 	// The provided writer can be used to send Update messages to the peer for
 	// the lifetime of the FSM's current, established state. It should be
 	// discarded once OnClose() fires.
-	OnEstablished(peer *PeerConfig, writer UpdateMessageWriter) UpdateMessageHandler
+	OnEstablished(peer PeerConfig, writer UpdateMessageWriter) UpdateMessageHandler
 
 	// OnClose is fired when a peer's FSM transitions out of the Established
 	// state.
-	OnClose(peer *PeerConfig)
+	OnClose(peer PeerConfig)
 }
 ```
 
@@ -49,27 +49,27 @@ Here's an example Plugin that logs when a peer enters/leaves an established stat
 ```go
 type plugin struct{}
 
-func (p *plugin) GetCapabilities(c *corebgp.PeerConfig) []*corebgp.Capability {
+func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []*corebgp.Capability {
 	caps := make([]*corebgp.Capability, 0)
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer *corebgp.PeerConfig, capabilities []*corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []*corebgp.Capability) *corebgp.Notification {
 	return nil
 }
 
-func (p *plugin) OnEstablished(peer *corebgp.PeerConfig, writer corebgp.UpdateMessageWriter) corebgp.UpdateMessageHandler {
+func (p *plugin) OnEstablished(peer corebgp.PeerConfig, writer corebgp.UpdateMessageWriter) corebgp.UpdateMessageHandler {
 	log.Println("peer established")
 	// send End-of-Rib
 	writer.WriteUpdate([]byte{0, 0, 0, 0})
 	return p.handleUpdate
 }
 
-func (p *plugin) OnClose(peer *corebgp.PeerConfig) {
+func (p *plugin) OnClose(peer corebgp.PeerConfig) {
 	log.Println("peer closed")
 }
 
-func (p *plugin) handleUpdate(peer *corebgp.PeerConfig, u []byte) *corebgp.Notification {
+func (p *plugin) handleUpdate(peer corebgp.PeerConfig, u []byte) *corebgp.Notification {
 	log.Printf("got update message of len: %d", len(u))
 	return nil
 }
@@ -83,7 +83,7 @@ if err != nil {
     log.Fatalf("error constructing server: %v", err)
 }
 p := &plugin{}
-err = srv.AddPeer(&corebgp.PeerConfig{
+err = srv.AddPeer(corebgp.PeerConfig{
     IP:       net.ParseIP("198.51.100.10"),
     LocalAS:  65001,
     RemoteAS: 65010,
