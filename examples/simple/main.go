@@ -43,7 +43,7 @@ func main() {
 	p := &plugin{}
 	opts := make([]corebgp.PeerOption, 0)
 	if *passive {
-		opts = append(opts, corebgp.Passive())
+		opts = append(opts, corebgp.WithPassive())
 	}
 	err = srv.AddPeer(&corebgp.PeerConfig{
 		IP:       net.ParseIP(*peerIP),

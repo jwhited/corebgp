@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 )
 
 // Server is a BGP server that manages peers.
@@ -135,60 +134,6 @@ type PeerConfig struct {
 	RemoteAS uint32
 }
 
-const (
-	DefaultHoldTime     = time.Second * 90
-	DefaultIdleHoldTime = time.Second * 5
-)
-
-func defaultPeerOptions() *peerOptions {
-	return &peerOptions{
-		holdTime:     DefaultHoldTime,
-		idleHoldTime: DefaultIdleHoldTime,
-		passive:      false,
-	}
-}
-
-type PeerOption interface {
-	apply(*peerOptions)
-}
-
-type funcPeerOption struct {
-	fn func(*peerOptions)
-}
-
-func (f *funcPeerOption) apply(p *peerOptions) {
-	f.fn(p)
-}
-
-func newFuncPeerOption(f func(*peerOptions)) *funcPeerOption {
-	return &funcPeerOption{
-		fn: f,
-	}
-}
-
-// Passive returns a PeerOption that sets a Peer to passive mode. In passive
-// mode a peer will not dial out and will only accept incoming connections.
-func Passive() PeerOption {
-	return newFuncPeerOption(func(o *peerOptions) {
-		o.passive = true
-	})
-}
-
-// IdleHoldTime returns a PeerOption that sets the idle hold time for a peer.
-// Idle hold time controls how quickly a peer can oscillate from idle to the
-// connect state.
-func IdleHoldTime(t time.Duration) PeerOption {
-	return newFuncPeerOption(func(o *peerOptions) {
-		o.idleHoldTime = t
-	})
-}
-
-type peerOptions struct {
-	holdTime     time.Duration
-	idleHoldTime time.Duration
-	passive      bool
-}
-
 func (p *PeerConfig) validate() error {
 	if p.IP.To4() == nil && p.IP.To16() == nil {
 		return errors.New("invalid peer IP")
@@ -217,6 +162,10 @@ func (s *Server) AddPeer(config *PeerConfig, plugin Plugin,
 	o := defaultPeerOptions()
 	for _, opt := range opts {
 		opt.apply(o)
+	}
+	err = o.valid()
+	if err != nil {
+		return fmt.Errorf("invalid peer options: %v", err)
 	}
 	p := newPeer(config, s.id, plugin, o)
 	if s.serving {
