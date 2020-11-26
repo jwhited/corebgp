@@ -38,6 +38,7 @@ func NewServer(routerID net.IP) (*Server, error) {
 
 var (
 	ErrServerClosed = errors.New("server closed")
+	ErrPeerNotExist = errors.New("peer does not exist")
 )
 
 // Serve starts all peers' FSMs, starts handling incoming connections if a
@@ -181,13 +182,29 @@ func (s *Server) DeletePeer(ip net.IP) error {
 	defer s.mu.Unlock()
 	p, exists := s.peers[ip.String()]
 	if !exists {
-		return errors.New("peer does not exist")
+		return ErrPeerNotExist
 	}
 	p.stop()
 	delete(s.peers, ip.String())
 	return nil
 }
 
-// TODO: Get/ListPeer
+func (s *Server) GetPeer(ip net.IP) (*PeerConfig, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, exists := s.peers[ip.String()]
+	if !exists {
+		return nil, ErrPeerNotExist
+	}
+	return p.config, nil
+}
 
-// no need for Enable/DisablePeer complexity, just use Add/DeletePeer.
+func (s *Server) ListPeers() []*PeerConfig {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	configs := make([]*PeerConfig, 0)
+	for _, peer := range s.peers {
+		configs = append(configs, peer.config)
+	}
+	return configs
+}
