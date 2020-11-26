@@ -135,7 +135,7 @@ type PeerConfig struct {
 	RemoteAS uint32
 }
 
-func (p *PeerConfig) validate() error {
+func (p PeerConfig) validate() error {
 	if p.IP.To4() == nil && p.IP.To16() == nil {
 		return errors.New("invalid peer IP")
 	}
@@ -148,7 +148,7 @@ func (p *PeerConfig) validate() error {
 
 // AddPeer adds a peer to the Server to be handled with the provided Plugin and
 // PeerOptions.
-func (s *Server) AddPeer(config *PeerConfig, plugin Plugin,
+func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	opts ...PeerOption) error {
 	err := config.validate()
 	if err != nil {
@@ -162,9 +162,9 @@ func (s *Server) AddPeer(config *PeerConfig, plugin Plugin,
 	}
 	o := defaultPeerOptions()
 	for _, opt := range opts {
-		opt.apply(o)
+		opt.apply(&o)
 	}
-	err = o.valid()
+	err = o.validate()
 	if err != nil {
 		return fmt.Errorf("invalid peer options: %v", err)
 	}
@@ -189,20 +189,23 @@ func (s *Server) DeletePeer(ip net.IP) error {
 	return nil
 }
 
-func (s *Server) GetPeer(ip net.IP) (*PeerConfig, error) {
+// GetPeer returns the configuration for the provided peer, or an error if it
+// does not exist.
+func (s *Server) GetPeer(ip net.IP) (PeerConfig, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, exists := s.peers[ip.String()]
 	if !exists {
-		return nil, ErrPeerNotExist
+		return PeerConfig{}, ErrPeerNotExist
 	}
 	return p.config, nil
 }
 
-func (s *Server) ListPeers() []*PeerConfig {
+// ListPeers returns the configuration for all peers.
+func (s *Server) ListPeers() []PeerConfig {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	configs := make([]*PeerConfig, 0)
+	configs := make([]PeerConfig, 0)
 	for _, peer := range s.peers {
 		configs = append(configs, peer.config)
 	}

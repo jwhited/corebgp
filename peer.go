@@ -19,10 +19,10 @@ const (
 
 // peer manages the FSMs for a peer.
 type peer struct {
-	config  *PeerConfig
+	config  PeerConfig
 	id      uint32
 	plugin  Plugin
-	options *peerOptions
+	options peerOptions
 
 	fsms         [2]*fsm
 	fsmState     [2]fsmState
@@ -45,7 +45,7 @@ const (
 	in  = 1
 )
 
-func newPeer(config *PeerConfig, id uint32, plugin Plugin, options *peerOptions) *peer {
+func newPeer(config PeerConfig, id uint32, plugin Plugin, options peerOptions) *peer {
 	p := &peer{
 		config:            config,
 		id:                id,
