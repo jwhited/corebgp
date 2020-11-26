@@ -75,18 +75,18 @@ func main() {
 type plugin struct {
 }
 
-func newMPCap(afi uint16, safi uint8) *corebgp.Capability {
+func newMPCap(afi uint16, safi uint8) corebgp.Capability {
 	mpData := make([]byte, 4)
 	binary.BigEndian.PutUint16(mpData, afi)
 	mpData[3] = safi
-	return &corebgp.Capability{
+	return corebgp.Capability{
 		Code:  1,
 		Value: mpData,
 	}
 }
 
-func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []*corebgp.Capability {
-	caps := make([]*corebgp.Capability, 0)
+func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
+	caps := make([]corebgp.Capability, 0)
 	if *ipv4 {
 		caps = append(caps, newMPCap(1, 1))
 	}
@@ -96,7 +96,7 @@ func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []*corebgp.Capability {
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []*corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []corebgp.Capability) *corebgp.Notification {
 	log.Println("open message received")
 	return nil
 }

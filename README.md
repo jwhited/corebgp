@@ -19,7 +19,7 @@ type Plugin interface {
 	// GetCapabilities is fired when a peer's FSM is in the Connect state prior
 	// to sending an Open message. The returned capabilities are included in the
 	// Open message sent to the peer.
-	GetCapabilities(peer PeerConfig) []*Capability
+	GetCapabilities(peer PeerConfig) []Capability
 
 	// OnOpenMessage is fired when an Open message is received from a peer
 	// during the OpenSent state. Returning a non-nil Notification will cause it
@@ -28,7 +28,7 @@ type Plugin interface {
 	// Per RFC5492 a BGP speaker should only send a Notification if a required
 	// capability is missing; unknown or unsupported capabilities should be
 	// ignored.
-	OnOpenMessage(peer PeerConfig, capabilities []*Capability) *Notification
+	OnOpenMessage(peer PeerConfig, capabilities []Capability) *Notification
 
 	// OnEstablished is fired when a peer's FSM transitions to the Established
 	// state. The returned UpdateMessageHandler will be fired when an Update
@@ -49,12 +49,12 @@ Here's an example Plugin that logs when a peer enters/leaves an established stat
 ```go
 type plugin struct{}
 
-func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []*corebgp.Capability {
-	caps := make([]*corebgp.Capability, 0)
+func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
+	caps := make([]corebgp.Capability, 0)
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []*corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []corebgp.Capability) *corebgp.Notification {
 	return nil
 }
 

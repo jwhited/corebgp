@@ -234,8 +234,8 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 	return nil
 }
 
-func (o *openMessage) getCapabilities() []*Capability {
-	caps := make([]*Capability, 0)
+func (o *openMessage) getCapabilities() []Capability {
+	caps := make([]Capability, 0)
 	for _, param := range o.optionalParams {
 		p, isCap := param.(*capabilityOptionalParam)
 		if isCap {
@@ -335,9 +335,9 @@ const (
 )
 
 func newOpenMessage(asn uint32, holdTime time.Duration, bgpID uint32,
-	caps []*Capability) (*openMessage, error) {
-	allCaps := make([]*Capability, 0)
-	fourOctetAS := &Capability{
+	caps []Capability) (*openMessage, error) {
+	allCaps := make([]Capability, 0)
+	fourOctetAS := Capability{
 		Code:  capCodeFourOctetAS,
 		Value: make([]byte, 4),
 	}
@@ -378,7 +378,7 @@ type optionalParam interface {
 }
 
 type capabilityOptionalParam struct {
-	capabilities []*Capability
+	capabilities []Capability
 }
 
 func (c *capabilityOptionalParam) paramType() uint8 {
@@ -401,7 +401,7 @@ func (c *capabilityOptionalParam) decode(b []byte) error {
 		if capLen > 0 {
 			capValue = b[2 : capLen+2]
 		}
-		cap := &Capability{
+		cap := Capability{
 			Code:  capCode,
 			Value: capValue,
 		}
