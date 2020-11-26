@@ -201,13 +201,6 @@ func newStateTransition(from fsmState, to fsmState) stateTransition {
 	}
 }
 
-const (
-	// https://tools.ietf.org/html/rfc4271#section-8.2.2
-	// The exact value of the ConnectRetryTimer is a local matter, but it
-	// SHOULD be sufficiently large to allow TCP initialization.
-	connectRetryTime = time.Second * 5
-)
-
 type dialResult struct {
 	conn net.Conn
 	err  error
@@ -258,7 +251,7 @@ func (f *fsm) idle() fsmState {
 	case <-f.closeCh:
 		return disabledState
 	case <-f.idleHoldTimer.C:
-		f.connectRetryTimer = time.NewTimer(connectRetryTime)
+		f.connectRetryTimer = time.NewTimer(f.peer.options.connectRetryTime)
 		f.dialPeer()
 		f.idleHoldTimer.Reset(f.peer.options.idleHoldTime)
 		return connectState
@@ -360,7 +353,7 @@ func (f *fsm) connect() fsmState {
 			f.cancelDialFn()
 			dr := <-f.dialResultCh
 			if dr.err != nil {
-				f.connectRetryTimer = time.NewTimer(connectRetryTime)
+				f.connectRetryTimer = time.NewTimer(f.peer.options.connectRetryTime)
 				f.dialPeer()
 				continue
 			}
@@ -394,7 +387,7 @@ func (f *fsm) active() fsmState {
 	*/
 	select {
 	case <-f.connectRetryTimer.C:
-		f.connectRetryTimer = time.NewTimer(connectRetryTime)
+		f.connectRetryTimer = time.NewTimer(f.peer.options.connectRetryTime)
 		f.dialPeer()
 		return connectState
 	case <-f.closeCh:
@@ -588,7 +581,7 @@ func (f *fsm) openSent() (fsmState, error) {
 				   - changes its state to Active.
 
 			*/
-			f.connectRetryTimer = time.NewTimer(connectRetryTime)
+			f.connectRetryTimer = time.NewTimer(f.peer.options.connectRetryTime)
 			return activeState, fmt.Errorf("reader error: %w", err)
 		case m := <-f.readerMsgCh:
 			switch m := m.(type) {
