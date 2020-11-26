@@ -9,12 +9,16 @@ type peerOptions struct {
 	holdTime         time.Duration
 	idleHoldTime     time.Duration
 	connectRetryTime time.Duration
+	port             int
 	passive          bool
 }
 
 func (p *peerOptions) valid() error {
 	if p.holdTime < time.Second*3 {
 		return errors.New("hold time must be >= 3 seconds")
+	}
+	if p.port < 1 || p.port > 65535 {
+		return errors.New("port must be between 1 and 65535")
 	}
 	return nil
 }
@@ -35,6 +39,8 @@ const (
 	// The exact value of the ConnectRetryTimer is a local matter, but it
 	// SHOULD be sufficiently large to allow TCP initialization.
 	DefaultConnectRetryTime = time.Second * 5
+	// DefaultPort is the default TCP port for a peer.
+	DefaultPort = 179
 )
 
 func defaultPeerOptions() *peerOptions {
@@ -42,6 +48,7 @@ func defaultPeerOptions() *peerOptions {
 		holdTime:         DefaultHoldTime,
 		idleHoldTime:     DefaultIdleHoldTime,
 		connectRetryTime: DefaultConnectRetryTime,
+		port:             DefaultPort,
 		passive:          false,
 	}
 }
@@ -82,5 +89,12 @@ func WithIdleHoldTime(t time.Duration) PeerOption {
 func WithConnectRetryTime(t time.Duration) PeerOption {
 	return newFuncPeerOption(func(o *peerOptions) {
 		o.connectRetryTime = t
+	})
+}
+
+// WithPort returns a PeerOption that sets the TCP port for a peer.
+func WithPort(p int) PeerOption {
+	return newFuncPeerOption(func(o *peerOptions) {
+		o.port = p
 	})
 }

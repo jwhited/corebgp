@@ -206,10 +206,6 @@ type dialResult struct {
 	err  error
 }
 
-const (
-	defaultPort = 179
-)
-
 func (f *fsm) dialPeer() {
 	ctx, cancel := context.WithCancel(context.Background())
 	dialResultCh := make(chan *dialResult)
@@ -220,7 +216,7 @@ func (f *fsm) dialPeer() {
 		dialer := &net.Dialer{}
 		conn, err := dialer.DialContext(ctx, "tcp",
 			net.JoinHostPort(f.peer.config.IP.String(),
-				strconv.Itoa(defaultPort)))
+				strconv.Itoa(f.peer.options.port)))
 		dialResultCh <- &dialResult{
 			conn: conn,
 			err:  err,
