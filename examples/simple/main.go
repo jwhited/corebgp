@@ -45,7 +45,7 @@ func main() {
 	if *passive {
 		opts = append(opts, corebgp.WithPassive())
 	}
-	err = srv.AddPeer(&corebgp.PeerConfig{
+	err = srv.AddPeer(corebgp.PeerConfig{
 		IP:       net.ParseIP(*peerIP),
 		LocalAS:  uint32(*localAS),
 		RemoteAS: uint32(*remoteAS),
@@ -85,7 +85,7 @@ func newMPCap(afi uint16, safi uint8) *corebgp.Capability {
 	}
 }
 
-func (p *plugin) GetCapabilities(c *corebgp.PeerConfig) []*corebgp.Capability {
+func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []*corebgp.Capability {
 	caps := make([]*corebgp.Capability, 0)
 	if *ipv4 {
 		caps = append(caps, newMPCap(1, 1))
@@ -96,23 +96,23 @@ func (p *plugin) GetCapabilities(c *corebgp.PeerConfig) []*corebgp.Capability {
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer *corebgp.PeerConfig, capabilities []*corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []*corebgp.Capability) *corebgp.Notification {
 	log.Println("open message received")
 	return nil
 }
 
-func (p *plugin) OnEstablished(peer *corebgp.PeerConfig, writer corebgp.UpdateMessageWriter) corebgp.UpdateMessageHandler {
+func (p *plugin) OnEstablished(peer corebgp.PeerConfig, writer corebgp.UpdateMessageWriter) corebgp.UpdateMessageHandler {
 	log.Println("peer established")
 	// send End-of-Rib
 	writer.WriteUpdate([]byte{0, 0, 0, 0})
 	return p.handleUpdate
 }
 
-func (p *plugin) OnClose(peer *corebgp.PeerConfig) {
+func (p *plugin) OnClose(peer corebgp.PeerConfig) {
 	log.Println("peer closed")
 }
 
-func (p *plugin) handleUpdate(peer *corebgp.PeerConfig, u []byte) *corebgp.Notification {
+func (p *plugin) handleUpdate(peer corebgp.PeerConfig, u []byte) *corebgp.Notification {
 	log.Printf("got update message of len: %d", len(u))
 	return nil
 }

@@ -13,7 +13,7 @@ type peerOptions struct {
 	passive          bool
 }
 
-func (p *peerOptions) valid() error {
+func (p peerOptions) validate() error {
 	if p.holdTime < time.Second*3 {
 		return errors.New("hold time must be >= 3 seconds")
 	}
@@ -43,8 +43,8 @@ const (
 	DefaultPort = 179
 )
 
-func defaultPeerOptions() *peerOptions {
-	return &peerOptions{
+func defaultPeerOptions() peerOptions {
+	return peerOptions{
 		holdTime:         DefaultHoldTime,
 		idleHoldTime:     DefaultIdleHoldTime,
 		connectRetryTime: DefaultConnectRetryTime,
