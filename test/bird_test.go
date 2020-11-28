@@ -64,6 +64,11 @@ type onEstablishedEvent struct {
 	writer corebgp.UpdateMessageWriter
 }
 
+type onUpdateEvent struct {
+	baseEvent
+	update []byte
+}
+
 type onCloseEvent struct {
 	baseEvent
 }
@@ -132,14 +137,26 @@ func TestBGP(t *testing.T) {
 	// disable BGP session on BIRD side
 	birdControl(t, "disable corebgp")
 
+	eventCh := make(chan pluginEvent, 1000)
+	onUpdateFn := func(peer corebgp.PeerConfig, update []byte) *corebgp.Notification {
+		eventCh <- onUpdateEvent{
+			baseEvent: baseEvent{
+				t: time.Now(),
+				c: peer,
+			},
+			update: update,
+		}
+		return nil
+	}
+
 	p := &plugin{
 		caps: []corebgp.Capability{
 			newMPCap(1, 1), // ipv4 unicast
 			newMPCap(2, 1), // ipv6 unicast
 		},
 		openNotification:     nil,
-		updateMessageHandler: nil,
-		event:                make(chan pluginEvent, 1000),
+		updateMessageHandler: onUpdateFn,
+		event:                eventCh,
 	}
 
 	server, err := corebgp.NewServer(net.ParseIP(myAddress))
@@ -212,9 +229,107 @@ func TestBGP(t *testing.T) {
 	// verify OnEstablished
 	event = <-p.event
 	verifyPeerConfig(t, event, pc)
-	_, ok = event.(onEstablishedEvent)
+	oe, ok := event.(onEstablishedEvent)
 	if !ok {
 		t.Fatal("not on established event")
+	}
+	// send UPDATE to BIRD
+	outboundUpdate := []byte{
+		0x00, 0x00, // withdrawn routes length
+		0x00, 0x14, // total path attribute length
+		0x40, 0x01, 0x01, 0x00, // origin igp
+		0x40, 0x02, 0x06, 0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9, // as_path 65001
+		0x40, 0x03, 0x04, 0xc0, 0x00, 0x02, 0x01, // next_hop 192.0.2.1
+		0x10, 0x0a, 0x00, // nlri 10.0.0.0/16
+	}
+	err = oe.writer.WriteUpdate(outboundUpdate)
+	if err != nil {
+		t.Fatalf("got error while sending update: %v", err)
+	}
+
+	// expect UPDATE containing 10.0.0.0/8
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	ou, ok := event.(onUpdateEvent)
+	if !ok {
+		t.Fatal("not on update event")
+	}
+	want := []byte{
+		0x00, 0x00, // withdrawn routes length
+		0x00, 0x14, // total path attribute length
+		0x40, 0x01, 0x01, 0x00, // origin igp
+		0x40, 0x02, 0x06, 0x02, 0x01, 0x00, 0x00, 0xfd, 0xea, // as_path 65002
+		0x40, 0x03, 0x04, 0xc0, 0x00, 0x02, 0x02, // next_hop 192.0.2.2
+		0x08, 0x0a, // nlri 10.0.0.0/8
+	}
+	if !bytes.Equal(want, ou.update) {
+		t.Errorf("expected %s for IPv4 UPDATE, got: %v", want, ou.update)
+	}
+
+	// expect IPv4 End of RIB marker
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	ou, ok = event.(onUpdateEvent)
+	if !ok {
+		t.Fatal("not on update event")
+	}
+	want = []byte{0, 0, 0, 0}
+	if !bytes.Equal(want, ou.update) {
+		t.Errorf("expected %s for IPv4 EoR, got: %v", want, ou.update)
+	}
+
+	// expect IPv6 End of RIB Marker
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	ou, ok = event.(onUpdateEvent)
+	if !ok {
+		t.Fatal("not on update event")
+	}
+	// https://tools.ietf.org/html/rfc4724#section-2
+	// An UPDATE message with no reachable Network Layer Reachability
+	// Information (NLRI) and empty withdrawn NLRI is specified as the End-
+	// of-RIB marker that can be used by a BGP speaker to indicate to its
+	// peer the completion of the initial routing update after the session
+	// is established.  For the IPv4 unicast address family, the End-of-RIB
+	// marker is an UPDATE message with the minimum length [BGP-4].  For any
+	// other address family, it is an UPDATE message that contains only the
+	// MP_UNREACH_NLRI attribute [BGP-MP] with no withdrawn routes for that
+	// <AFI, SAFI>.
+	want = []byte{
+		0x00, 0x00, // withdrawn routes length
+		0x00, 0x06, // path attribute length
+		0x80, 0x0f, 0x03, 0x00, 0x02, 0x01, // path attribute mp unreach nlri
+	}
+	if !bytes.Equal(want, ou.update) {
+		t.Errorf("expected %v for IPv6 EoR, got: %v", want, ou.update)
+	}
+
+	// verify route seen by BIRD
+	//
+	/*
+		bird> show route all 10.0.0.0/16
+		Table master4:
+		10.0.0.0/16          unicast [corebgp 21:53:24.644] ! (100) [AS65001i]
+			via 192.0.2.1 on eth0
+			Type: BGP univ
+			BGP.origin: IGP
+			BGP.as_path: 65001
+			BGP.next_hop: 192.0.2.1
+			BGP.local_pref: 100
+	*/
+	output := birdControl(t, "show route all 10.0.0.0/16")
+	substrings := []string{
+		"10.0.0.0/16",
+		"corebgp",
+		"BGP.origin: IGP",
+		"BGP.as_path: 65001",
+		"BGP.next_hop: 192.0.2.1",
+		"BGP.local_pref: 100",
+	}
+	for _, sub := range substrings {
+		if !strings.Contains(output, sub) {
+			t.Errorf("expected substring '%s' in '%s'", sub, output)
+		}
 	}
 
 	// shutdown bird
