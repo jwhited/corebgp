@@ -1,0 +1,23 @@
+name: integration_test
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  integration_test:
+    defaults:
+      run:
+        working-directory: test
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: start bird container
+        run: docker-compose up -d bird
+      - name: bird integration test
+        run: docker-compose up --abort-on-container-exit --exit-code-from corebgp
