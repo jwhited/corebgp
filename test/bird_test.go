@@ -429,6 +429,114 @@ func TestNotificationSentOnOpen(t *testing.T) {
 	}
 }
 
+// TestNotificationSentOnUpdate exercises the UpdateMessageHandler and returns a
+// non-nil NOTIFICATION message to be sent to BIRD. We expect BIRD to receive
+// the NOTIFICATION and enter an error state for the corebgp peer.
+func TestNotificationSentOnUpdate(t *testing.T) {
+	// disable BGP session on BIRD side
+	birdControl(t, "disable corebgp")
+
+	eventCh := make(chan pluginEvent, 1000)
+	notification := &corebgp.Notification{
+		Code: corebgp.NotifCodeUpdateMessageErr,
+		Data: []byte{},
+	}
+	onUpdateFn := func(peer corebgp.PeerConfig, update []byte) *corebgp.Notification {
+		eventCh <- onUpdateEvent{
+			baseEvent: baseEvent{
+				t: time.Now(),
+				c: peer,
+			},
+			update: update,
+		}
+		return notification
+	}
+	p := &plugin{
+		caps: []corebgp.Capability{
+			newMPCap(1, 1), // ipv4 unicast
+			newMPCap(2, 1), // ipv6 unicast
+		},
+		openNotification:     nil,
+		updateMessageHandler: onUpdateFn,
+		event:                eventCh,
+	}
+
+	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	if err != nil {
+		t.Fatalf("error constructing server: %v", err)
+	}
+
+	pc := corebgp.PeerConfig{
+		IP:       net.ParseIP(birdAddress),
+		RemoteAS: birdAS,
+		LocalAS:  myAS,
+	}
+
+	err = server.AddPeer(pc, p)
+	if err != nil {
+		t.Fatalf("error adding peer: %v", err)
+	}
+
+	// enable BGP session on BIRD side
+	birdControl(t, "enable corebgp")
+
+	lis, err := net.Listen("tcp", net.JoinHostPort(myAddress, "179"))
+	if err != nil {
+		t.Fatalf("error constructing listener: %v", err)
+	}
+	defer lis.Close()
+
+	serveErrCh := make(chan error)
+	go func() {
+		serveErrCh <- server.Serve(lis)
+	}()
+
+	// expect get caps event
+	event := <-p.event
+	verifyPeerConfig(t, event, pc)
+	_, ok := event.(getCapsEvent)
+	if !ok {
+		t.Fatal("not get caps event")
+	}
+
+	// expect on open event
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	_, ok = event.(onOpenEvent)
+	if !ok {
+		t.Fatal("not on open event")
+	}
+
+	// expect on established event
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	_, ok = event.(onEstablishedEvent)
+	if !ok {
+		t.Fatal("not on established event")
+	}
+
+	// expect on update event
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	_, ok = event.(onUpdateEvent)
+	if !ok {
+		t.Fatal("not on update event")
+	}
+
+	// verify BIRD received the notification
+	//
+	/*
+		bird> show protocols corebgp
+		Name       Proto      Table      State  Since         Info
+		corebgp    BGP        ---        start  22:57:50.627  Idle          Received: Invalid UPDATE message
+	*/
+	output := birdControl(t, "show protocols corebgp")
+	invalidUpdate := "Received: Invalid UPDATE message"
+	if !strings.Contains(output, invalidUpdate) {
+		t.Fatalf("expected substring '%s' in '%s'", invalidUpdate, output)
+	}
+}
+
 func TestBIRDControl(t *testing.T) {
 	birdControl(t, "show protocols all")
 }
