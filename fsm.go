@@ -605,8 +605,10 @@ func (f *fsm) openSent() (fsmState, error) {
 					return idleState, fmt.Errorf("error validating open message: %w", err)
 				}
 				f.remoteID = m.bgpID
+				rid := make([]byte, 4)
+				binary.BigEndian.PutUint32(rid, m.bgpID)
 
-				n := f.peer.plugin.OnOpenMessage(f.peer.config, m.getCapabilities())
+				n := f.peer.plugin.OnOpenMessage(f.peer.config, rid, m.getCapabilities())
 				if n != nil {
 					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)
