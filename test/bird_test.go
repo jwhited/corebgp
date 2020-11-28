@@ -133,7 +133,10 @@ func verifyPeerConfig(t *testing.T, event pluginEvent, config corebgp.PeerConfig
 	}
 }
 
-func TestBGP(t *testing.T) {
+// TestCleanBGPSession exercises all plugin event handlers for a clean
+// (no errors/notifications) BGP session w/BIRD. OPEN message negotiation is
+// expected to succeed and UPDATE messages should flow.
+func TestCleanBGPSession(t *testing.T) {
 	// disable BGP session on BIRD side
 	birdControl(t, "disable corebgp")
 
@@ -341,6 +344,88 @@ func TestBGP(t *testing.T) {
 	_, ok = event.(onCloseEvent)
 	if !ok {
 		t.Fatal("not on close event")
+	}
+}
+
+// TestNotificationSentOnOpen exercises the OnOpenMessage() handler and returns
+// a non-nil NOTIFICATION message to be sent to BIRD. We expect BIRD to receive
+// the NOTIFICATION and enter an error state for the corebgp peer.
+func TestNotificationSentOnOpen(t *testing.T) {
+	// disable BGP session on BIRD side
+	birdControl(t, "disable corebgp")
+
+	eventCh := make(chan pluginEvent, 1000)
+	notification := &corebgp.Notification{
+		Code: corebgp.NotifCodeOpenMessageErr,
+		Data: []byte{},
+	}
+
+	p := &plugin{
+		caps: []corebgp.Capability{
+			newMPCap(1, 1), // ipv4 unicast
+			newMPCap(2, 1), // ipv6 unicast
+		},
+		openNotification:     notification,
+		updateMessageHandler: nil,
+		event:                eventCh,
+	}
+
+	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	if err != nil {
+		t.Fatalf("error constructing server: %v", err)
+	}
+
+	pc := corebgp.PeerConfig{
+		IP:       net.ParseIP(birdAddress),
+		RemoteAS: birdAS,
+		LocalAS:  myAS,
+	}
+
+	err = server.AddPeer(pc, p)
+	if err != nil {
+		t.Fatalf("error adding peer: %v", err)
+	}
+
+	// enable BGP session on BIRD side
+	birdControl(t, "enable corebgp")
+
+	lis, err := net.Listen("tcp", net.JoinHostPort(myAddress, "179"))
+	if err != nil {
+		t.Fatalf("error constructing listener: %v", err)
+	}
+	defer lis.Close()
+
+	serveErrCh := make(chan error)
+	go func() {
+		serveErrCh <- server.Serve(lis)
+	}()
+
+	// expect get caps event
+	event := <-p.event
+	verifyPeerConfig(t, event, pc)
+	_, ok := event.(getCapsEvent)
+	if !ok {
+		t.Fatal("not get caps event")
+	}
+
+	event = <-p.event
+	verifyPeerConfig(t, event, pc)
+	_, ok = event.(onOpenEvent)
+	if !ok {
+		t.Fatal("not on open event")
+	}
+
+	// verify BIRD received the notification
+	//
+	/*
+		bird> show protocols corebgp
+		Name       Proto      Table      State  Since         Info
+		corebgp    BGP        ---        start  22:39:46.063  Idle          Received: Invalid OPEN message
+	*/
+	output := birdControl(t, "show protocols corebgp")
+	invalidOpen := "Received: Invalid OPEN message"
+	if !strings.Contains(output, invalidOpen) {
+		t.Fatalf("expected substring '%s' in '%s'", invalidOpen, output)
 	}
 }
 
