@@ -96,7 +96,7 @@ func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID net.IP, capabilities []corebgp.Capability) *corebgp.Notification {
 	log.Println("open message received")
 	return nil
 }

@@ -55,7 +55,8 @@ type getCapsEvent struct {
 
 type onOpenEvent struct {
 	baseEvent
-	caps []corebgp.Capability
+	routerID net.IP
+	caps     []corebgp.Capability
 }
 
 type onEstablishedEvent struct {
@@ -77,14 +78,15 @@ func (p *plugin) GetCapabilities(peer corebgp.PeerConfig) []corebgp.Capability {
 	return p.caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig,
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID net.IP,
 	capabilities []corebgp.Capability) *corebgp.Notification {
 	p.event <- onOpenEvent{
 		baseEvent: baseEvent{
 			t: time.Now(),
 			c: peer,
 		},
-		caps: capabilities,
+		routerID: routerID,
+		caps:     capabilities,
 	}
 	return p.openNotification
 }
@@ -185,8 +187,12 @@ func TestBGP(t *testing.T) {
 	if !ok {
 		t.Fatal("not on open event")
 	}
+	if !onOpen.routerID.Equal(net.ParseIP(birdAddress)) {
+		t.Errorf("expected router ID %s, got: %s", birdAddress,
+			onOpen.routerID)
+	}
 	if len(onOpen.caps) < 2 {
-		t.Fatalf("expected at least 2 caps in open message, got: %d",
+		t.Errorf("expected at least 2 caps in open message, got: %d",
 			len(onOpen.caps))
 	}
 	for _, capA := range p.caps {

@@ -28,7 +28,7 @@ type Plugin interface {
 	// Per RFC5492 a BGP speaker should only send a Notification if a required
 	// capability is missing; unknown or unsupported capabilities should be
 	// ignored.
-	OnOpenMessage(peer PeerConfig, capabilities []Capability) *Notification
+	OnOpenMessage(peer PeerConfig, routerID net.IP, capabilities []Capability) *Notification
 
 	// OnEstablished is fired when a peer's FSM transitions to the Established
 	// state. The returned UpdateMessageHandler will be fired when an Update
@@ -54,7 +54,7 @@ func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, capabilities []corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID net.IP, capabilities []corebgp.Capability) *corebgp.Notification {
 	return nil
 }
 
