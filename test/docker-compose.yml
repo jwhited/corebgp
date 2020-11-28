@@ -1,0 +1,41 @@
+version: "3.8"
+services:
+  corebgp:
+    build: .
+    working_dir: "/go/src/github.com/jwhited/corebgp/test"
+    volumes:
+      - "../:/go/src/github.com/jwhited/corebgp"
+      - "./bird:/etc/bird"
+      - "run-bird:/run/bird"
+    entrypoint: [ "go", "test", "-v", "-count=1", "./..." ]
+    networks:
+      bgp:
+        ipv4_address: 192.0.2.1
+        ipv6_address: "2001:DB8::1"
+
+  bird:
+    build: .
+    volumes:
+      - "./bird:/etc/bird"
+      - "run-bird:/run/bird"
+    entrypoint: [ "/usr/sbin/bird", "-d", "-c", "/etc/bird/bird.conf" ]
+    networks:
+      bgp:
+        ipv4_address: 192.0.2.2
+        ipv6_address: "2001:DB8::2"
+
+networks:
+  bgp:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.0.2.0/24
+          gateway: 192.0.2.254
+        - subnet: "2001:DB8::/64"
+          gateway: "2001:DB8::254"
+
+volumes:
+  run-bird:
