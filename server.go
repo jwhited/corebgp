@@ -10,9 +10,12 @@ import (
 
 // Server is a BGP server that manages peers.
 type Server struct {
-	mu            sync.Mutex
-	id            uint32
-	peers         map[string]*peer
+	mu      sync.Mutex
+	id      uint32
+	peers   map[string]*peer
+	options serverOptions
+
+	// control channels & run state
 	serving       bool
 	doneServingCh chan struct{}
 	closeCh       chan struct{}
@@ -20,16 +23,26 @@ type Server struct {
 }
 
 // NewServer creates a new Server.
-func NewServer(routerID net.IP) (*Server, error) {
+func NewServer(routerID net.IP, opts ...ServerOption) (*Server, error) {
 	v4 := routerID.To4()
 	if v4 == nil {
 		return nil, errors.New("invalid router ID")
+	}
+
+	o := defaultServerOptions()
+	for _, opt := range opts {
+		opt.apply(&o)
+	}
+	err := o.validate()
+	if err != nil {
+		return nil, err
 	}
 
 	s := &Server{
 		mu:            sync.Mutex{},
 		id:            binary.BigEndian.Uint32(v4),
 		peers:         make(map[string]*peer),
+		options:       o,
 		doneServingCh: make(chan struct{}),
 		closeCh:       make(chan struct{}),
 	}
@@ -41,10 +54,10 @@ var (
 	ErrPeerNotExist = errors.New("peer does not exist")
 )
 
-// Serve starts all peers' FSMs, starts handling incoming connections if a
-// non-nil listener is provided, and then blocks. Serve returns ErrServerClosed
-// upon Close() or a listener error if one occurs.
-func (s *Server) Serve(lis net.Listener) error {
+// Serve starts all peers' FSMs, binds to local sockets for incoming connection
+// handling (if Server was created with LocalAddrs), and then blocks. Serve
+// returns ErrServerClosed upon Close() or a listener/bind error if one occurs.
+func (s *Server) Serve() error {
 	s.mu.Lock()
 	// check if server has been closed
 	select {
@@ -75,13 +88,31 @@ func (s *Server) Serve(lis net.Listener) error {
 		s.mu.Unlock()
 	}()
 
+	// construct and bind listeners
 	lisErrCh := make(chan error)
-	if lis != nil {
-		go func() {
+	listeners := make([]net.Listener, 0)
+	for laddr := range s.options.localAddrs {
+		lis, err := net.Listen("tcp", laddr)
+		if err != nil {
+			return err
+		}
+		defer lis.Close()
+		listeners = append(listeners, lis)
+	}
+
+	lisWG := &sync.WaitGroup{}
+	closingListeners := make(chan struct{})
+	for _, lis := range listeners {
+		lisWG.Add(1)
+		go func(lis net.Listener) {
+			defer lisWG.Done()
 			for {
 				conn, err := lis.Accept()
 				if err != nil {
-					lisErrCh <- err
+					select {
+					case lisErrCh <- err:
+					case <-closingListeners:
+					}
 					return
 				}
 				h, _, err := net.SplitHostPort(conn.RemoteAddr().String())
@@ -99,17 +130,23 @@ func (s *Server) Serve(lis net.Listener) error {
 				p.incomingConnection(conn)
 				s.mu.Unlock()
 			}
-		}()
+		}(lis)
+	}
+
+	closeListeners := func() {
+		close(closingListeners)
+		for _, lis := range listeners {
+			lis.Close()
+		}
+		lisWG.Wait()
 	}
 
 	select {
 	case <-s.closeCh:
-		if lis != nil {
-			lis.Close()
-			<-lisErrCh
-		}
+		closeListeners()
 		return ErrServerClosed
 	case err := <-lisErrCh:
+		closeListeners()
 		return fmt.Errorf("listener error: %v", err)
 	}
 }
@@ -130,14 +167,16 @@ func (s *Server) Close() {
 
 // PeerConfig is the required configuration for a Peer.
 type PeerConfig struct {
-	IP       net.IP
-	LocalAS  uint32
-	RemoteAS uint32
+	LocalAddress  net.IP
+	RemoteAddress net.IP
+	LocalAS       uint32
+	RemoteAS      uint32
 }
 
 func (p PeerConfig) validate() error {
-	if p.IP.To4() == nil && p.IP.To16() == nil {
-		return errors.New("invalid peer IP")
+	if !((p.LocalAddress.To4() != nil && p.RemoteAddress.To4() != nil) ||
+		(p.LocalAddress.To16() != nil && p.RemoteAddress.To16() != nil)) {
+		return errors.New("invalid local/remote address pair")
 	}
 	// https://tools.ietf.org/html/rfc7607
 	if p.LocalAS == 0 || p.RemoteAS == 0 {
@@ -156,7 +195,7 @@ func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, exists := s.peers[config.IP.String()]
+	_, exists := s.peers[config.RemoteAddress.String()]
 	if exists {
 		return errors.New("peer already exists")
 	}
@@ -172,7 +211,7 @@ func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	if s.serving {
 		p.start()
 	}
-	s.peers[p.config.IP.String()] = p
+	s.peers[p.config.RemoteAddress.String()] = p
 	return nil
 }
 

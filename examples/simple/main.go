@@ -13,50 +13,46 @@ import (
 )
 
 var (
-	routerID = flag.String("id", "", "router ID")
-	localAS  = flag.Uint("las", 0, "local AS")
-	remoteAS = flag.Uint("ras", 0, "remote AS")
-	peerIP   = flag.String("ip", "", "peer IP address")
-	ipv4     = flag.Bool("v4", false, "enable ipv4 afi/safi")
-	ipv6     = flag.Bool("v6", false, "enable ipv6 afi/safi")
-	bindAddr = flag.String("bind", ":179", "listen address")
-	passive  = flag.Bool("passive", false, "disable outbound connections")
+	routerID      = flag.String("id", "", "router ID")
+	localAS       = flag.Uint("las", 0, "local AS")
+	remoteAS      = flag.Uint("ras", 0, "remote AS")
+	localAddress  = flag.String("laddr", "", "local address")
+	remoteAddress = flag.String("raddr", "", "remote address")
+	ipv4          = flag.Bool("v4", false, "enable ipv4 afi/safi")
+	ipv6          = flag.Bool("v6", false, "enable ipv6 afi/safi")
+	bindAddr      = flag.String("bind", ":179", "listen address")
+	passive       = flag.Bool("passive", false, "disable outbound connections")
 )
 
 func main() {
 	flag.Parse()
-	var (
-		lis net.Listener
-		err error
-	)
+	serverOpts := make([]corebgp.ServerOption, 0)
 	if len(*bindAddr) > 0 {
-		lis, err = net.Listen("tcp", *bindAddr)
-		if err != nil {
-			log.Fatalf("error constructing listener: %v", err)
-		}
+		serverOpts = append(serverOpts, corebgp.LocalAddrs([]string{*bindAddr}))
 	}
 	corebgp.SetLogger(log.Print)
-	srv, err := corebgp.NewServer(net.ParseIP(*routerID))
+	srv, err := corebgp.NewServer(net.ParseIP(*routerID), serverOpts...)
 	if err != nil {
 		log.Fatalf("error constructing server: %v", err)
 	}
 	p := &plugin{}
-	opts := make([]corebgp.PeerOption, 0)
+	peerOpts := make([]corebgp.PeerOption, 0)
 	if *passive {
-		opts = append(opts, corebgp.WithPassive())
+		peerOpts = append(peerOpts, corebgp.WithPassive())
 	}
 	err = srv.AddPeer(corebgp.PeerConfig{
-		IP:       net.ParseIP(*peerIP),
-		LocalAS:  uint32(*localAS),
-		RemoteAS: uint32(*remoteAS),
-	}, p, opts...)
+		LocalAddress:  net.ParseIP(*localAddress),
+		RemoteAddress: net.ParseIP(*remoteAddress),
+		LocalAS:       uint32(*localAS),
+		RemoteAS:      uint32(*remoteAS),
+	}, p, peerOpts...)
 	if err != nil {
 		log.Fatalf("error adding peer: %v", err)
 	}
 
 	srvErrCh := make(chan error)
 	go func() {
-		err := srv.Serve(lis)
+		err := srv.Serve()
 		srvErrCh <- err
 	}()
 
