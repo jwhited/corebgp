@@ -213,9 +213,19 @@ func (f *fsm) dialPeer() {
 	f.cancelDialFn = cancel
 	go func() {
 		defer close(f.dialResultCh)
-		dialer := &net.Dialer{}
+		laddr, err := net.ResolveTCPAddr("tcp",
+			net.JoinHostPort(f.peer.config.LocalAddress.String(), "0"))
+		if err != nil {
+			dialResultCh <- &dialResult{
+				conn: nil,
+				err:  err,
+			}
+		}
+		dialer := &net.Dialer{
+			LocalAddr: laddr,
+		}
 		conn, err := dialer.DialContext(ctx, "tcp",
-			net.JoinHostPort(f.peer.config.IP.String(),
+			net.JoinHostPort(f.peer.config.RemoteAddress.String(),
 				strconv.Itoa(f.peer.options.port)))
 		dialResultCh <- &dialResult{
 			conn: conn,
