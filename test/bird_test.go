@@ -1,4 +1,4 @@
-// +build !unit
+// +build integration
 
 package test
 
@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"reflect"
 	"regexp"
@@ -133,10 +134,66 @@ func verifyPeerConfig(t *testing.T, event pluginEvent, config corebgp.PeerConfig
 	}
 }
 
+const configPath = "/etc/bird/bird.conf"
+
+func loadBIRDConfig(t *testing.T, config []byte) {
+	birdControl(t, "disable all")
+	err := ioutil.WriteFile(configPath, config, 0644)
+	if err != nil {
+		t.Fatalf("error writing bird config: %v", err)
+	}
+	if !strings.Contains(
+		birdControl(t, "configure check"),
+		"Configuration OK") {
+		t.Fatal("configure check failed")
+	}
+	if !strings.Contains(
+		birdControl(t, fmt.Sprintf(`configure "%s"`, configPath)),
+		"Reconfigured") {
+		t.Fatal("failed to reconfigure bird")
+	}
+	birdControl(t, "enable all")
+}
+
+func baseBIRDConfig(plus []byte) []byte {
+	return append([]byte(`
+router id 192.0.2.2;
+protocol device {
+}
+protocol static {
+	ipv4;
+	route 10.0.0.0/8 via "eth0";
+}
+protocol kernel {
+	ipv4 {
+	      table master4;
+	      import all;
+	      export all;
+	};
+}
+`), plus...)
+}
+
 // TestCleanBGPSession exercises all plugin event handlers for a clean
 // (no errors/notifications) BGP session w/BIRD. OPEN message negotiation is
 // expected to succeed and UPDATE messages should flow.
 func TestCleanBGPSession(t *testing.T) {
+	loadBIRDConfig(t, baseBIRDConfig([]byte(`
+protocol bgp corebgp {
+	description "corebgp";
+	local 192.0.2.2 as 65002;
+	neighbor 192.0.2.1 as 65001;
+	hold time 90;
+	ipv4 {			# regular IPv4 unicast (1/1)
+		import all;
+		export where source ~ [ RTS_STATIC, RTS_BGP ];
+	};
+	ipv6 {			# regular IPv6 unicast (2/1)
+		import all;
+		export where source ~ [ RTS_STATIC, RTS_BGP ];
+	};
+}
+`)))
 	// disable BGP session on BIRD side
 	birdControl(t, "disable corebgp")
 
@@ -349,6 +406,22 @@ func TestCleanBGPSession(t *testing.T) {
 // a non-nil NOTIFICATION message to be sent to BIRD. We expect BIRD to receive
 // the NOTIFICATION and enter an error state for the corebgp peer.
 func TestNotificationSentOnOpen(t *testing.T) {
+	loadBIRDConfig(t, baseBIRDConfig([]byte(`
+protocol bgp corebgp {
+	description "corebgp";
+	local 192.0.2.2 as 65002;
+	neighbor 192.0.2.1 as 65001;
+	hold time 90;
+	ipv4 {			# regular IPv4 unicast (1/1)
+		import all;
+		export where source ~ [ RTS_STATIC, RTS_BGP ];
+	};
+	ipv6 {			# regular IPv6 unicast (2/1)
+		import all;
+		export where source ~ [ RTS_STATIC, RTS_BGP ];
+	};
+}
+`)))
 	// disable BGP session on BIRD side
 	birdControl(t, "disable corebgp")
 
@@ -429,6 +502,22 @@ func TestNotificationSentOnOpen(t *testing.T) {
 // non-nil NOTIFICATION message to be sent to BIRD. We expect BIRD to receive
 // the NOTIFICATION and enter an error state for the corebgp peer.
 func TestNotificationSentOnUpdate(t *testing.T) {
+	loadBIRDConfig(t, baseBIRDConfig([]byte(`
+protocol bgp corebgp {
+	description "corebgp";
+	local 192.0.2.2 as 65002;
+	neighbor 192.0.2.1 as 65001;
+	hold time 90;
+	ipv4 {			# regular IPv4 unicast (1/1)
+		import all;
+		export where source ~ [ RTS_STATIC, RTS_BGP ];
+	};
+	ipv6 {			# regular IPv6 unicast (2/1)
+		import all;
+		export where source ~ [ RTS_STATIC, RTS_BGP ];
+	};
+}
+`)))
 	// disable BGP session on BIRD side
 	birdControl(t, "disable corebgp")
 
@@ -660,8 +749,12 @@ func birdControl(t *testing.T, command string) string {
 			continue
 		}
 		if birdLinePrefix.Match(b) {
-			if bytes.Equal(b[:5], []byte("0000 ")) {
-				// done
+			// Requests are commands encoded as a single line of text, replies
+			// are sequences of lines starting with a four-digit code followed
+			// by either a space (if it's the last line of the reply) or a minus
+			// sign (when the reply is going to continue with the next line)
+			if b[4] == ' ' {
+				out.Write(b[5:]) // sometimes the last line contains text
 				break
 			}
 			b = b[5:]

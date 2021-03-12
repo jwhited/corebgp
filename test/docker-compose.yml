@@ -5,9 +5,9 @@ services:
     working_dir: "/go/src/github.com/jwhited/corebgp/test"
     volumes:
       - "../:/go/src/github.com/jwhited/corebgp"
-      - "./bird:/etc/bird"
-      - "run-bird:/run/bird"
-    entrypoint: [ "go", "test", "-v", "-count=1", "./..." ]
+      - "bird-config:/etc/bird"
+      - "bird-run:/run/bird"
+    entrypoint: [ "go", "test", "-v", "-tags=integration", "-count=1", "./..." ]
     networks:
       bgp:
         ipv4_address: 192.0.2.1
@@ -16,9 +16,9 @@ services:
   bird:
     build: .
     volumes:
-      - "./bird:/etc/bird"
-      - "run-bird:/run/bird"
-    entrypoint: [ "/usr/sbin/bird", "-d", "-c", "/etc/bird/bird.conf" ]
+      - "bird-config:/etc/bird"
+      - "bird-run:/run/bird"
+    entrypoint: [ "/usr/sbin/bird", "-d", "-c", "/etc/bird.conf" ]
     networks:
       bgp:
         ipv4_address: 192.0.2.2
@@ -38,4 +38,5 @@ networks:
           gateway: "2001:DB8::254"
 
 volumes:
-  run-bird:
+  bird-config:
+  bird-run:
