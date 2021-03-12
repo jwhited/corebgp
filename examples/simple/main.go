@@ -26,12 +26,18 @@ var (
 
 func main() {
 	flag.Parse()
-	serverOpts := make([]corebgp.ServerOption, 0)
+	var (
+		lis net.Listener
+		err error
+	)
 	if len(*bindAddr) > 0 {
-		serverOpts = append(serverOpts, corebgp.LocalAddrs([]string{*bindAddr}))
+		lis, err = net.Listen("tcp", *bindAddr)
+		if err != nil {
+			log.Fatalf("error constructing listener: %v", err)
+		}
 	}
 	corebgp.SetLogger(log.Print)
-	srv, err := corebgp.NewServer(net.ParseIP(*routerID), serverOpts...)
+	srv, err := corebgp.NewServer(net.ParseIP(*routerID))
 	if err != nil {
 		log.Fatalf("error constructing server: %v", err)
 	}
@@ -52,7 +58,7 @@ func main() {
 
 	srvErrCh := make(chan error)
 	go func() {
-		err := srv.Serve()
+		err := srv.Serve([]net.Listener{lis})
 		srvErrCh <- err
 	}()
 

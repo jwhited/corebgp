@@ -2,6 +2,7 @@ package corebgp
 
 import (
 	"errors"
+	"syscall"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type peerOptions struct {
 	connectRetryTime time.Duration
 	port             int
 	passive          bool
+	dialerControlFn  func(network, address string, c syscall.RawConn) error
 }
 
 func (p peerOptions) validate() error {
@@ -96,5 +98,15 @@ func WithConnectRetryTime(t time.Duration) PeerOption {
 func WithPort(p int) PeerOption {
 	return newFuncPeerOption(func(o *peerOptions) {
 		o.port = p
+	})
+}
+
+// WithDialerControl returns a PeerOption that sets the outbound net.Dialer
+// Control field. This is commonly used to set socket options, e.g. ip TTL, tcp
+// md5, tcp_nodelay, etc...
+func WithDialerControl(fn func(network, address string,
+	c syscall.RawConn) error) PeerOption {
+	return newFuncPeerOption(func(o *peerOptions) {
+		o.dialerControlFn = fn
 	})
 }

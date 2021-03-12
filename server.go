@@ -10,10 +10,9 @@ import (
 
 // Server is a BGP server that manages peers.
 type Server struct {
-	mu      sync.Mutex
-	id      uint32
-	peers   map[string]*peer
-	options serverOptions
+	mu    sync.Mutex
+	id    uint32
+	peers map[string]*peer
 
 	// control channels & run state
 	serving       bool
@@ -23,26 +22,16 @@ type Server struct {
 }
 
 // NewServer creates a new Server.
-func NewServer(routerID net.IP, opts ...ServerOption) (*Server, error) {
+func NewServer(routerID net.IP) (*Server, error) {
 	v4 := routerID.To4()
 	if v4 == nil {
 		return nil, errors.New("invalid router ID")
-	}
-
-	o := defaultServerOptions()
-	for _, opt := range opts {
-		opt.apply(&o)
-	}
-	err := o.validate()
-	if err != nil {
-		return nil, err
 	}
 
 	s := &Server{
 		mu:            sync.Mutex{},
 		id:            binary.BigEndian.Uint32(v4),
 		peers:         make(map[string]*peer),
-		options:       o,
 		doneServingCh: make(chan struct{}),
 		closeCh:       make(chan struct{}),
 	}
@@ -54,10 +43,10 @@ var (
 	ErrPeerNotExist = errors.New("peer does not exist")
 )
 
-// Serve starts all peers' FSMs, binds to local sockets for incoming connection
-// handling (if Server was created with LocalAddrs), and then blocks. Serve
-// returns ErrServerClosed upon Close() or a listener/bind error if one occurs.
-func (s *Server) Serve() error {
+// Serve starts all peers' FSMs, starts handling incoming connections if a
+// non-nil listener is provided, and then blocks. Serve returns ErrServerClosed
+// upon Close() or a listener error if one occurs.
+func (s *Server) Serve(listeners []net.Listener) error {
 	s.mu.Lock()
 	// check if server has been closed
 	select {
@@ -88,18 +77,7 @@ func (s *Server) Serve() error {
 		s.mu.Unlock()
 	}()
 
-	// construct and bind listeners
 	lisErrCh := make(chan error)
-	listeners := make([]net.Listener, 0)
-	for laddr := range s.options.localAddrs {
-		lis, err := net.Listen("tcp", laddr)
-		if err != nil {
-			return err
-		}
-		defer lis.Close()
-		listeners = append(listeners, lis)
-	}
-
 	lisWG := &sync.WaitGroup{}
 	closingListeners := make(chan struct{})
 	for _, lis := range listeners {

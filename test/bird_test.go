@@ -162,9 +162,7 @@ func TestCleanBGPSession(t *testing.T) {
 		event:                eventCh,
 	}
 
-	opts := make([]corebgp.ServerOption, 0)
-	opts = append(opts, corebgp.LocalAddrs([]string{fmt.Sprintf("%s:179", myAddress)}))
-	server, err := corebgp.NewServer(net.ParseIP(myAddress), opts...)
+	server, err := corebgp.NewServer(net.ParseIP(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
@@ -184,7 +182,12 @@ func TestCleanBGPSession(t *testing.T) {
 	// enable BGP session on BIRD side
 	birdControl(t, "enable corebgp")
 
-	go server.Serve() // nolint: errcheck
+	lis, err := net.Listen("tcp", net.JoinHostPort(myAddress, "179"))
+	if err != nil {
+		t.Fatalf("error constructing listener: %v", err)
+	}
+	defer lis.Close()
+	go server.Serve([]net.Listener{lis}) // nolint: errcheck
 	defer server.Close()
 
 	// verify GetCapabilities
@@ -365,9 +368,7 @@ func TestNotificationSentOnOpen(t *testing.T) {
 		event:                eventCh,
 	}
 
-	opts := make([]corebgp.ServerOption, 0)
-	opts = append(opts, corebgp.LocalAddrs([]string{fmt.Sprintf("%s:179", myAddress)}))
-	server, err := corebgp.NewServer(net.ParseIP(myAddress), opts...)
+	server, err := corebgp.NewServer(net.ParseIP(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
@@ -387,7 +388,12 @@ func TestNotificationSentOnOpen(t *testing.T) {
 	// enable BGP session on BIRD side
 	birdControl(t, "enable corebgp")
 
-	go server.Serve() // nolint: errcheck
+	lis, err := net.Listen("tcp", net.JoinHostPort(myAddress, "179"))
+	if err != nil {
+		t.Fatalf("error constructing listener: %v", err)
+	}
+	defer lis.Close()
+	go server.Serve([]net.Listener{lis}) // nolint: errcheck
 	defer server.Close()
 
 	// expect get caps event
@@ -451,9 +457,7 @@ func TestNotificationSentOnUpdate(t *testing.T) {
 		event:                eventCh,
 	}
 
-	opts := make([]corebgp.ServerOption, 0)
-	opts = append(opts, corebgp.LocalAddrs([]string{fmt.Sprintf("%s:179", myAddress)}))
-	server, err := corebgp.NewServer(net.ParseIP(myAddress), opts...)
+	server, err := corebgp.NewServer(net.ParseIP(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
@@ -473,7 +477,12 @@ func TestNotificationSentOnUpdate(t *testing.T) {
 	// enable BGP session on BIRD side
 	birdControl(t, "enable corebgp")
 
-	go server.Serve() // nolint: errcheck
+	lis, err := net.Listen("tcp", net.JoinHostPort(myAddress, "179"))
+	if err != nil {
+		t.Fatalf("error constructing listener: %v", err)
+	}
+	defer lis.Close()
+	go server.Serve([]net.Listener{lis}) // nolint: errcheck
 	defer server.Close()
 
 	// expect get caps event

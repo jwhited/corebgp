@@ -223,6 +223,7 @@ func (f *fsm) dialPeer() {
 		}
 		dialer := &net.Dialer{
 			LocalAddr: laddr,
+			Control:   f.peer.options.dialerControlFn,
 		}
 		conn, err := dialer.DialContext(ctx, "tcp",
 			net.JoinHostPort(f.peer.config.RemoteAddress.String(),
