@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -118,6 +119,56 @@ func (p *plugin) OnClose(peer corebgp.PeerConfig) {
 	}
 }
 
+func (p *plugin) wantGetCapsEvent(t *testing.T, pc corebgp.PeerConfig) getCapsEvent {
+	got := <-p.event
+	want, ok := got.(getCapsEvent)
+	if !ok {
+		t.Fatalf("want: getCapsEvent, got: %s", reflect.TypeOf(got))
+	}
+	verifyPeerConfig(t, want, pc)
+	return want
+}
+
+func (p *plugin) wantOnOpenEvent(t *testing.T, pc corebgp.PeerConfig) onOpenEvent {
+	got := <-p.event
+	want, ok := got.(onOpenEvent)
+	if !ok {
+		t.Fatalf("want: onOpenEvent, got: %s", reflect.TypeOf(got))
+	}
+	verifyPeerConfig(t, want, pc)
+	return want
+}
+
+func (p *plugin) wantOnEstablishedEvent(t *testing.T, pc corebgp.PeerConfig) onEstablishedEvent {
+	got := <-p.event
+	want, ok := got.(onEstablishedEvent)
+	if !ok {
+		t.Fatalf("want: onEstablishedEvent, got: %s", reflect.TypeOf(got))
+	}
+	verifyPeerConfig(t, want, pc)
+	return want
+}
+
+func (p *plugin) wantOnUpdateEvent(t *testing.T, pc corebgp.PeerConfig) onUpdateEvent {
+	got := <-p.event
+	want, ok := got.(onUpdateEvent)
+	if !ok {
+		t.Fatalf("want: onUpdateEvent, got: %s", reflect.TypeOf(got))
+	}
+	verifyPeerConfig(t, want, pc)
+	return want
+}
+
+func (p *plugin) wantOnCloseEvent(t *testing.T, pc corebgp.PeerConfig) onCloseEvent {
+	got := <-p.event
+	want, ok := got.(onCloseEvent)
+	if !ok {
+		t.Fatalf("want: onCloseEvent, got: %s", reflect.TypeOf(got))
+	}
+	verifyPeerConfig(t, want, pc)
+	return want
+}
+
 func newMPCap(afi uint16, safi uint8) corebgp.Capability {
 	mpData := make([]byte, 4)
 	binary.BigEndian.PutUint16(mpData, afi)
@@ -160,10 +211,6 @@ func baseBIRDConfig(plus []byte) []byte {
 router id 192.0.2.2;
 protocol device {
 }
-protocol static {
-	ipv4;
-	route 10.0.0.0/8 via "eth0";
-}
 protocol kernel {
 	ipv4 {
 	      table master4;
@@ -179,16 +226,20 @@ protocol kernel {
 // expected to succeed and UPDATE messages should flow.
 func TestCleanBGPSession(t *testing.T) {
 	loadBIRDConfig(t, baseBIRDConfig([]byte(`
+protocol static {
+	ipv4;
+	route 10.0.0.0/8 via "eth0";
+}
 protocol bgp corebgp {
 	description "corebgp";
 	local 192.0.2.2 as 65002;
 	neighbor 192.0.2.1 as 65001;
 	hold time 90;
-	ipv4 {			# regular IPv4 unicast (1/1)
+	ipv4 {
 		import all;
 		export where source ~ [ RTS_STATIC, RTS_BGP ];
 	};
-	ipv6 {			# regular IPv6 unicast (2/1)
+	ipv6 {
 		import all;
 		export where source ~ [ RTS_STATIC, RTS_BGP ];
 	};
@@ -248,20 +299,10 @@ protocol bgp corebgp {
 	defer server.Close()
 
 	// verify GetCapabilities
-	event := <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok := event.(getCapsEvent)
-	if !ok {
-		t.Fatal("not get caps event")
-	}
+	p.wantGetCapsEvent(t, pc)
 
 	// verify OnOpenMessage
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	onOpen, ok := event.(onOpenEvent)
-	if !ok {
-		t.Fatal("not on open event")
-	}
+	onOpen := p.wantOnOpenEvent(t, pc)
 	if !onOpen.routerID.Equal(net.ParseIP(birdAddress)) {
 		t.Errorf("expected router ID %s, got: %s", birdAddress,
 			onOpen.routerID)
@@ -285,12 +326,7 @@ protocol bgp corebgp {
 	}
 
 	// verify OnEstablished
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	oe, ok := event.(onEstablishedEvent)
-	if !ok {
-		t.Fatal("not on established event")
-	}
+	oe := p.wantOnEstablishedEvent(t, pc)
 	// send UPDATE to BIRD
 	outboundUpdate := []byte{
 		0x00, 0x00, // withdrawn routes length
@@ -306,12 +342,7 @@ protocol bgp corebgp {
 	}
 
 	// expect UPDATE containing 10.0.0.0/8
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	ou, ok := event.(onUpdateEvent)
-	if !ok {
-		t.Fatal("not on update event")
-	}
+	ou := p.wantOnUpdateEvent(t, pc)
 	want := []byte{
 		0x00, 0x00, // withdrawn routes length
 		0x00, 0x14, // total path attribute length
@@ -325,24 +356,14 @@ protocol bgp corebgp {
 	}
 
 	// expect IPv4 End of RIB marker
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	ou, ok = event.(onUpdateEvent)
-	if !ok {
-		t.Fatal("not on update event")
-	}
+	ou = p.wantOnUpdateEvent(t, pc)
 	want = []byte{0, 0, 0, 0}
 	if !bytes.Equal(want, ou.update) {
 		t.Errorf("expected %s for IPv4 EoR, got: %v", want, ou.update)
 	}
 
 	// expect IPv6 End of RIB Marker
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	ou, ok = event.(onUpdateEvent)
-	if !ok {
-		t.Fatal("not on update event")
-	}
+	ou = p.wantOnUpdateEvent(t, pc)
 	// https://tools.ietf.org/html/rfc4724#section-2
 	// An UPDATE message with no reachable Network Layer Reachability
 	// Information (NLRI) and empty withdrawn NLRI is specified as the End-
@@ -394,12 +415,7 @@ protocol bgp corebgp {
 	birdControl(t, "disable corebgp")
 
 	// verify OnClose
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok = event.(onCloseEvent)
-	if !ok {
-		t.Fatal("not on close event")
-	}
+	p.wantOnCloseEvent(t, pc)
 }
 
 // TestNotificationSentOnOpen exercises the OnOpenMessage() handler and returns
@@ -412,13 +428,9 @@ protocol bgp corebgp {
 	local 192.0.2.2 as 65002;
 	neighbor 192.0.2.1 as 65001;
 	hold time 90;
-	ipv4 {			# regular IPv4 unicast (1/1)
+	ipv4 {
 		import all;
-		export where source ~ [ RTS_STATIC, RTS_BGP ];
-	};
-	ipv6 {			# regular IPv6 unicast (2/1)
-		import all;
-		export where source ~ [ RTS_STATIC, RTS_BGP ];
+		export none;
 	};
 }
 `)))
@@ -434,7 +446,6 @@ protocol bgp corebgp {
 	p := &plugin{
 		caps: []corebgp.Capability{
 			newMPCap(1, 1), // ipv4 unicast
-			newMPCap(2, 1), // ipv6 unicast
 		},
 		openNotification:     notification,
 		updateMessageHandler: nil,
@@ -470,19 +481,9 @@ protocol bgp corebgp {
 	defer server.Close()
 
 	// expect get caps event
-	event := <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok := event.(getCapsEvent)
-	if !ok {
-		t.Fatal("not get caps event")
-	}
+	p.wantGetCapsEvent(t, pc)
 
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok = event.(onOpenEvent)
-	if !ok {
-		t.Fatal("not on open event")
-	}
+	p.wantOnOpenEvent(t, pc)
 
 	// verify BIRD received the notification
 	//
@@ -508,13 +509,9 @@ protocol bgp corebgp {
 	local 192.0.2.2 as 65002;
 	neighbor 192.0.2.1 as 65001;
 	hold time 90;
-	ipv4 {			# regular IPv4 unicast (1/1)
+	ipv4 {
 		import all;
-		export where source ~ [ RTS_STATIC, RTS_BGP ];
-	};
-	ipv6 {			# regular IPv6 unicast (2/1)
-		import all;
-		export where source ~ [ RTS_STATIC, RTS_BGP ];
+		export none;
 	};
 }
 `)))
@@ -539,7 +536,6 @@ protocol bgp corebgp {
 	p := &plugin{
 		caps: []corebgp.Capability{
 			newMPCap(1, 1), // ipv4 unicast
-			newMPCap(2, 1), // ipv6 unicast
 		},
 		openNotification:     nil,
 		updateMessageHandler: onUpdateFn,
@@ -575,36 +571,16 @@ protocol bgp corebgp {
 	defer server.Close()
 
 	// expect get caps event
-	event := <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok := event.(getCapsEvent)
-	if !ok {
-		t.Fatal("not get caps event")
-	}
+	p.wantGetCapsEvent(t, pc)
 
 	// expect on open event
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok = event.(onOpenEvent)
-	if !ok {
-		t.Fatal("not on open event")
-	}
+	p.wantOnOpenEvent(t, pc)
 
 	// expect on established event
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok = event.(onEstablishedEvent)
-	if !ok {
-		t.Fatal("not on established event")
-	}
+	p.wantOnEstablishedEvent(t, pc)
 
 	// expect on update event
-	event = <-p.event
-	verifyPeerConfig(t, event, pc)
-	_, ok = event.(onUpdateEvent)
-	if !ok {
-		t.Fatal("not on update event")
-	}
+	p.wantOnUpdateEvent(t, pc)
 
 	// verify BIRD received the notification
 	//
@@ -618,6 +594,77 @@ protocol bgp corebgp {
 	if !strings.Contains(output, invalidUpdate) {
 		t.Fatalf("expected substring '%s' in '%s'", invalidUpdate, output)
 	}
+}
+
+// TestWithDialerControl exercises the WithDialerControl PeerOption by setting
+// a TCP MD5 signature on the dialing socket.
+func TestWithDialerControl(t *testing.T) {
+	loadBIRDConfig(t, baseBIRDConfig([]byte(`
+protocol bgp corebgp {
+	description "corebgp";
+	password "password";
+	local 192.0.2.2 as 65002;
+	neighbor 192.0.2.1 as 65001;
+	hold time 90;
+	ipv4 {
+		import all;
+		export none;
+	};
+}
+`)))
+	// disable BGP session on BIRD side
+	birdControl(t, "disable corebgp")
+
+	eventCh := make(chan pluginEvent, 1000)
+	p := &plugin{
+		caps: []corebgp.Capability{
+			newMPCap(1, 1), // ipv4 unicast
+		},
+		updateMessageHandler: nil,
+		event:                eventCh,
+	}
+
+	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	if err != nil {
+		t.Fatalf("error constructing server: %v", err)
+	}
+
+	pc := corebgp.PeerConfig{
+		LocalAddress:  net.ParseIP(myAddress),
+		RemoteAddress: net.ParseIP(birdAddress),
+		RemoteAS:      birdAS,
+		LocalAS:       myAS,
+	}
+
+	err = server.AddPeer(pc, p,
+		corebgp.WithDialerControl(func(network, address string, c syscall.RawConn) error {
+			var cerr error
+			cerr = c.Control(func(fdPtr uintptr) {
+				fd := int(fdPtr)
+				cerr = corebgp.SetTCPMD5Signature(fd, pc.RemoteAddress,
+					32, "password")
+			})
+			return cerr
+		}))
+	if err != nil {
+		t.Fatalf("error adding peer: %v", err)
+	}
+
+	// enable BGP session on BIRD side
+	birdControl(t, "enable corebgp")
+
+	// don't listen in order to ensure Dialer.Control is exercised
+	go server.Serve(nil) // nolint: errcheck
+	defer server.Close()
+
+	// expect get caps event
+	p.wantGetCapsEvent(t, pc)
+
+	// expect on open event
+	p.wantOnOpenEvent(t, pc)
+
+	// expect on established event
+	p.wantOnEstablishedEvent(t, pc)
 }
 
 func TestBIRDControl(t *testing.T) {
