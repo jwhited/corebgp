@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"flag"
 	"log"
@@ -22,6 +23,7 @@ var (
 	ipv6          = flag.Bool("v6", false, "enable ipv6 afi/safi")
 	bindAddr      = flag.String("bind", ":179", "listen address")
 	passive       = flag.Bool("passive", false, "disable outbound connections")
+	md5           = flag.String("md5", "", "tcp md5 signature")
 )
 
 func main() {
@@ -30,8 +32,30 @@ func main() {
 		lis net.Listener
 		err error
 	)
+	remote := net.ParseIP(*remoteAddress)
+	local := net.ParseIP(*localAddress)
 	if len(*bindAddr) > 0 {
-		lis, err = net.Listen("tcp", *bindAddr)
+		lc := &net.ListenConfig{}
+		if len(*md5) > 0 {
+			lc.Control = func(network, address string,
+				c syscall.RawConn) error {
+				var seterr error
+				err := c.Control(func(fdPtr uintptr) {
+					fd := int(fdPtr)
+					prefixLen := uint8(32)
+					if remote.To4() == nil {
+						prefixLen = 128
+					}
+					seterr = corebgp.SetTCPMD5Signature(fd,
+						remote, prefixLen, *md5)
+				})
+				if err != nil {
+					return err
+				}
+				return seterr
+			}
+		}
+		lis, err = lc.Listen(context.Background(), "tcp", *bindAddr)
 		if err != nil {
 			log.Fatalf("error constructing listener: %v", err)
 		}
@@ -43,12 +67,31 @@ func main() {
 	}
 	p := &plugin{}
 	peerOpts := make([]corebgp.PeerOption, 0)
+	if len(*md5) > 0 {
+		peerOpts = append(peerOpts, corebgp.WithDialerControl(
+			func(network, address string, c syscall.RawConn) error {
+				var seterr error
+				err := c.Control(func(fdPtr uintptr) {
+					fd := int(fdPtr)
+					prefixLen := uint8(32)
+					if remote.To4() == nil {
+						prefixLen = 128
+					}
+					seterr = corebgp.SetTCPMD5Signature(fd,
+						remote, prefixLen, *md5)
+				})
+				if err != nil {
+					return err
+				}
+				return seterr
+			}))
+	}
 	if *passive {
 		peerOpts = append(peerOpts, corebgp.WithPassive())
 	}
 	err = srv.AddPeer(corebgp.PeerConfig{
-		LocalAddress:  net.ParseIP(*localAddress),
-		RemoteAddress: net.ParseIP(*remoteAddress),
+		LocalAddress:  local,
+		RemoteAddress: remote,
 		LocalAS:       uint32(*localAS),
 		RemoteAS:      uint32(*remoteAS),
 	}, p, peerOpts...)

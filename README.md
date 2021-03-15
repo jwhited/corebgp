@@ -12,6 +12,7 @@ CoreBGP does not decode UPDATE messages (besides header validation), manage a ro
 
 See this [blog post](https://www.jordanwhited.com/posts/corebgp-plugging-in-to-bgp/) for the background and reasoning behind the development of CoreBGP.
 
+## Plugin
 The primary building block of CoreBGP is a Plugin, defined by the following interface:
 ```go
 // Plugin is a BGP peer plugin.
@@ -95,3 +96,6 @@ if err != nil {
 ```
 
 For more examples check out the [examples directory](https://github.com/jwhited/corebgp/tree/master/examples) and [pkg.go.dev](https://pkg.go.dev/github.com/jwhited/corebgp?tab=doc) for the complete API.
+
+## Versioning
+CoreBGP follows [semver](https://semver.org) as closely as it can. Seeing as we are still major version zero (0.y.z), the public API should not be considered stable. You are encouraged to pin CoreBGP's version with your dependency management solution of choice.
