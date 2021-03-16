@@ -638,13 +638,16 @@ protocol bgp corebgp {
 
 	err = server.AddPeer(pc, p,
 		corebgp.WithDialerControl(func(network, address string, c syscall.RawConn) error {
-			var cerr error
-			cerr = c.Control(func(fdPtr uintptr) {
+			var seterr error
+			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				cerr = corebgp.SetTCPMD5Signature(fd, pc.RemoteAddress,
+				seterr = corebgp.SetTCPMD5Signature(fd, pc.RemoteAddress,
 					32, "password")
 			})
-			return cerr
+			if err != nil {
+				return err
+			}
+			return seterr
 		}))
 	if err != nil {
 		t.Fatalf("error adding peer: %v", err)
