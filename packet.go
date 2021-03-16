@@ -289,12 +289,12 @@ func decodeOptionalParams(b []byte) ([]optionalParam, error) {
 		b = b[nextParam:]
 		switch paramCode {
 		case capabilityOptionalParamType:
-			cap := &capabilityOptionalParam{}
-			err := cap.decode(paramToDecode)
+			c := &capabilityOptionalParam{}
+			err := c.decode(paramToDecode)
 			if err != nil {
 				return nil, err
 			}
-			params = append(params, cap)
+			params = append(params, c)
 		default:
 			n := newNotification(NotifCodeOpenMessageErr,
 				NotifSubcodeUnsupportedOptionalParam, nil)
@@ -343,10 +343,10 @@ func newOpenMessage(asn uint32, holdTime time.Duration, bgpID uint32,
 	}
 	binary.BigEndian.PutUint32(fourOctetAS.Value, asn)
 	allCaps = append(allCaps, fourOctetAS)
-	for _, cap := range caps {
+	for _, c := range caps {
 		// ignore four octet as capability as we include this implicitly above
-		if cap.Code != capCodeFourOctetAS {
-			allCaps = append(allCaps, cap)
+		if c.Code != capCodeFourOctetAS {
+			allCaps = append(allCaps, c)
 		}
 	}
 	o := &openMessage{
@@ -401,11 +401,11 @@ func (c *capabilityOptionalParam) decode(b []byte) error {
 		if capLen > 0 {
 			capValue = b[2 : capLen+2]
 		}
-		cap := Capability{
+		capability := Capability{
 			Code:  capCode,
 			Value: capValue,
 		}
-		c.capabilities = append(c.capabilities, cap)
+		c.capabilities = append(c.capabilities, capability)
 		nextCap := 2 + int(capLen)
 		b = b[nextCap:]
 		if len(b) == 0 {
