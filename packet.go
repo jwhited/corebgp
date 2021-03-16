@@ -418,10 +418,10 @@ func (c *capabilityOptionalParam) encode() ([]byte, error) {
 	b := make([]byte, 0)
 	caps := make([]byte, 0)
 	if len(c.capabilities) > 0 {
-		for _, cap := range c.capabilities {
-			caps = append(caps, cap.Code)
-			caps = append(caps, uint8(len(cap.Value)))
-			caps = append(caps, cap.Value...)
+		for _, capability := range c.capabilities {
+			caps = append(caps, capability.Code)
+			caps = append(caps, uint8(len(capability.Value)))
+			caps = append(caps, capability.Value...)
 		}
 	} else {
 		return nil, errors.New("empty capabilities in capability optional param")
