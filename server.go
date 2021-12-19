@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 )
 
@@ -12,7 +13,7 @@ import (
 type Server struct {
 	mu    sync.Mutex
 	id    uint32
-	peers map[string]*peer
+	peers map[netip.Addr]*peer
 
 	// control channels & run state
 	serving       bool
@@ -22,24 +23,23 @@ type Server struct {
 }
 
 // NewServer creates a new Server.
-func NewServer(routerID net.IP) (*Server, error) {
-	v4 := routerID.To4()
-	if v4 == nil {
+func NewServer(routerID netip.Addr) (*Server, error) {
+	if !routerID.Is4() {
 		return nil, errors.New("invalid router ID")
 	}
 
-	s := &Server{
+	return &Server{
 		mu:            sync.Mutex{},
-		id:            binary.BigEndian.Uint32(v4),
-		peers:         make(map[string]*peer),
+		id:            binary.BigEndian.Uint32(routerID.AsSlice()),
+		peers:         make(map[netip.Addr]*peer),
 		doneServingCh: make(chan struct{}),
 		closeCh:       make(chan struct{}),
-	}
-	return s, nil
+	}, nil
 }
 
 var (
 	ErrServerClosed = errors.New("server closed")
+	ErrPeerExist    = errors.New("peer already exists")
 	ErrPeerNotExist = errors.New("peer does not exist")
 )
 
@@ -93,13 +93,15 @@ func (s *Server) Serve(listeners []net.Listener) error {
 					}
 					return
 				}
-				h, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+
+				addrPort, err := netip.ParseAddrPort(conn.RemoteAddr().String())
 				if err != nil {
 					conn.Close()
 					continue
 				}
+
 				s.mu.Lock()
-				p, exists := s.peers[h]
+				p, exists := s.peers[addrPort.Addr()]
 				if !exists {
 					conn.Close()
 					s.mu.Unlock()
@@ -135,86 +137,104 @@ func (s *Server) Close() {
 	s.closeOnce.Do(func() {
 		close(s.closeCh)
 	})
+
 	if !s.serving {
 		s.mu.Unlock()
 		return
 	}
+
 	s.mu.Unlock()
 	<-s.doneServingCh
 }
 
 // PeerConfig is the required configuration for a Peer.
 type PeerConfig struct {
-	LocalAddress  net.IP
-	RemoteAddress net.IP
+	LocalAddress  netip.Addr
+	RemoteAddress netip.Addr
 	LocalAS       uint32
 	RemoteAS      uint32
 }
 
 func (p PeerConfig) validate() error {
-	if !((p.LocalAddress.To4() != nil && p.RemoteAddress.To4() != nil) ||
-		(p.LocalAddress.To16() != nil && p.RemoteAddress.To16() != nil)) {
+	if !p.LocalAddress.IsValid() {
+		return errors.New("invalid local address")
+	}
+
+	if !p.RemoteAddress.IsValid() {
+		return errors.New("invalid remote address")
+	}
+
+	if p.LocalAddress.Is4() != p.RemoteAddress.Is4() {
 		return errors.New("invalid local/remote address pair")
 	}
+
 	// https://tools.ietf.org/html/rfc7607
 	if p.LocalAS == 0 || p.RemoteAS == 0 {
 		return errors.New("AS must be > 0")
 	}
+
 	return nil
 }
 
-// AddPeer adds a peer to the Server to be handled with the provided Plugin and
-// PeerOptions.
-func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
-	opts ...PeerOption) error {
-	err := config.validate()
-	if err != nil {
+// AddPeer adds a peer to the Server to be handled with the provided Plugin and PeerOptions.
+func (s *Server) AddPeer(config PeerConfig, plugin Plugin, opts ...PeerOption) error {
+	if err := config.validate(); err != nil {
 		return fmt.Errorf("peer config invalid: %v", err)
 	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, exists := s.peers[config.RemoteAddress.String()]
+
+	_, exists := s.peers[config.RemoteAddress]
 	if exists {
-		return errors.New("peer already exists")
+		return ErrPeerExist
 	}
+
 	o := defaultPeerOptions()
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
-	err = o.validate()
-	if err != nil {
+
+	if err := o.validate(); err != nil {
 		return fmt.Errorf("invalid peer options: %v", err)
 	}
+
 	p := newPeer(config, s.id, plugin, o)
 	if s.serving {
 		p.start()
 	}
-	s.peers[p.config.RemoteAddress.String()] = p
+
+	s.peers[p.config.RemoteAddress] = p
+
 	return nil
 }
 
 // DeletePeer deletes a peer from the Server.
-func (s *Server) DeletePeer(ip net.IP) error {
+func (s *Server) DeletePeer(ip netip.Addr) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	p, exists := s.peers[ip.String()]
+
+	p, exists := s.peers[ip]
 	if !exists {
 		return ErrPeerNotExist
 	}
+
 	p.stop()
-	delete(s.peers, ip.String())
+	delete(s.peers, ip)
+
 	return nil
 }
 
-// GetPeer returns the configuration for the provided peer, or an error if it
-// does not exist.
-func (s *Server) GetPeer(ip net.IP) (PeerConfig, error) {
+// GetPeer returns the configuration for the provided peer, or an error if it does not exist.
+func (s *Server) GetPeer(ip netip.Addr) (PeerConfig, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	p, exists := s.peers[ip.String()]
+
+	p, exists := s.peers[ip]
 	if !exists {
 		return PeerConfig{}, ErrPeerNotExist
 	}
+
 	return p.config, nil
 }
 
@@ -222,9 +242,11 @@ func (s *Server) GetPeer(ip net.IP) (PeerConfig, error) {
 func (s *Server) ListPeers() []PeerConfig {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	configs := make([]PeerConfig, 0)
+
+	configs := make([]PeerConfig, 0, len(s.peers))
 	for _, peer := range s.peers {
 		configs = append(configs, peer.config)
 	}
+
 	return configs
 }

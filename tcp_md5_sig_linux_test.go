@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"syscall"
 	"testing"
 	"time"
@@ -34,8 +35,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// nil address
-		seterr = SetTCPMD5Signature(fd, nil, 32,
-			"password")
+		seterr = SetTCPMD5Signature(fd, netip.Addr{}, "password")
 	})
 	if err != nil {
 		t.Fatalf("control err: %v", err)
@@ -48,8 +48,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// ipv6 address
-		seterr = SetTCPMD5Signature(fd, net.ParseIP("2001:db8::1"),
-			128, "password")
+		seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("2001:db8::1"), "password")
 	})
 	if err != nil {
 		t.Fatalf("control err: %v", err)
@@ -62,8 +61,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// valid
-		seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
-			32, "password")
+		seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"), "password")
 	})
 	if err != nil {
 		t.Fatalf("control err: %v", err)
@@ -73,8 +71,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	}
 
 	// dial w/password from previously set addr, this should succeed
-	laddr, err := net.ResolveTCPAddr("tcp",
-		net.JoinHostPort("127.0.0.1", "0"))
+	laddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
 	if err != nil {
 		t.Fatalf("error resolving laddr: %v", err)
 	}
@@ -84,8 +81,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
-					32, "password")
+				seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"), "password")
 			})
 			if err != nil {
 				return err
@@ -93,8 +89,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 			return seterr
 		},
 	}
-	conn, err := dialer.Dial("tcp", fmt.Sprintf("127.0.0.1:%s",
-		port))
+	conn, err := dialer.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", port))
 	if err != nil {
 		t.Fatalf("error dialing w/md5: %v", err)
 	}
@@ -104,8 +99,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// unset
-		seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
-			32, "")
+		seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"), "")
 	})
 	if err != nil {
 		t.Fatalf("control err: %v", err)
@@ -127,8 +121,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
-					32, "password")
+				seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"), "password")
 			})
 			if err != nil {
 				return err
@@ -136,8 +129,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 			return seterr
 		},
 	}
-	lis, err = lc.Listen(context.Background(), "tcp",
-		net.JoinHostPort("::", "0"))
+	lis, err = lc.Listen(context.Background(), "tcp", net.JoinHostPort("::", "0"))
 	if err != nil {
 		t.Fatalf("error listening: %v", err)
 	}
@@ -146,8 +138,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error splitting host/port: %v", err)
 	}
-	laddr, err = net.ResolveTCPAddr("tcp",
-		net.JoinHostPort("127.0.0.1", "0"))
+	laddr, err = net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
 	if err != nil {
 		t.Fatalf("error resolving laddr: %v", err)
 	}
@@ -160,8 +151,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
-					32, "password")
+				seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"), "password")
 			})
 			if err != nil {
 				return err

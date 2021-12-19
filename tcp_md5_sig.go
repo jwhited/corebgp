@@ -1,4 +1,4 @@
-// +build !linux
+//go:build !linux
 
 package corebgp
 
@@ -13,7 +13,6 @@ import (
 // < 4.13.
 //
 // https://tools.ietf.org/html/rfc2385
-func SetTCPMD5Signature(fd int, address net.IP, prefixLen uint8,
-	key string) error {
+func SetTCPMD5Signature(fd int, address net.IP, prefixLen uint8, key string) error {
 	return errors.New("unsupported")
 }

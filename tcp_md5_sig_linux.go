@@ -3,7 +3,7 @@ package corebgp
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -20,8 +20,7 @@ type tcpMD5Sig struct {
 	key       [80]byte
 }
 
-func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
-	tcpMD5Sig, error) {
+func newTCPMD5Sig(fd int, address netip.Addr, key string) (tcpMD5Sig, error) {
 	t := tcpMD5Sig{
 		flags: unix.TCP_MD5SIG_FLAG_PREFIX,
 	}
@@ -29,35 +28,41 @@ func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
 		return t, fmt.Errorf("md5 key len is > %d",
 			unix.TCP_MD5SIG_MAXKEYLEN)
 	}
+
 	sa, err := unix.Getsockname(fd)
 	if err != nil {
 		return t, err
 	}
+
 	switch sa.(type) {
 	case *unix.SockaddrInet4:
-		if address.To4() == nil {
+		if !address.Is4() {
 			// we can only set a key for an ipv4 addr on an af_inet socket
 			return t, errors.New("invalid address")
 		}
+
 		t.ssFamily = unix.AF_INET
-		copy(t.ss[2:], address.To4())
+		copy(t.ss[2:], address.AsSlice())
 	case *unix.SockaddrInet6:
 		t.ssFamily = unix.AF_INET6
-		if address.To4() == nil && address.To16() == nil {
+		if !address.IsValid() {
 			// https://github.com/torvalds/linux/blob/v5.11-rc7/net/ipv6/tcp_ipv6.c#L636-L640
 			//
 			// address may be ipv4 or ipv6 for an AF_INET6 wildcard socket.
 			return t, errors.New("invalid address")
 		}
-		// ensure address is represented as 16 bytes as ipv4-mapped ipv6 is
-		// valid here
-		copy(t.ss[6:], net.ParseIP(address.String()).To16())
+
+		// ensure address is represented as 16 bytes as ipv4-mapped ipv6 is valid here
+		tmp := address.As16()
+		copy(t.ss[6:], tmp[:])
 	default:
 		return t, errors.New("unknown socket type")
 	}
-	t.prefixLen = prefixLen
+
+	t.prefixLen = uint8(address.BitLen())
 	t.keyLen = uint16(len(key))
-	copy(t.key[0:], []byte(key))
+	copy(t.key[0:], key)
+
 	return t, nil
 }
 
@@ -67,13 +72,13 @@ func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
 // < 4.13.
 //
 // https://tools.ietf.org/html/rfc2385
-func SetTCPMD5Signature(fd int, address net.IP, prefixLen uint8,
-	key string) error {
-	t, err := newTCPMD5Sig(fd, address, prefixLen, key)
+func SetTCPMD5Signature(fd int, address netip.Addr, key string) error {
+	t, err := newTCPMD5Sig(fd, address, key)
 	if err != nil {
 		return err
 	}
+
 	b := *(*[unsafe.Sizeof(t)]byte)(unsafe.Pointer(&t))
-	return unix.SetsockoptString(fd, unix.IPPROTO_TCP, unix.TCP_MD5SIG_EXT,
-		string(b[:]))
+
+	return unix.SetsockoptString(fd, unix.IPPROTO_TCP, unix.TCP_MD5SIG_EXT, string(b[:]))
 }

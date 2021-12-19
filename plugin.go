@@ -1,6 +1,6 @@
 package corebgp
 
-import "net"
+import "net/netip"
 
 // Plugin is a BGP peer plugin.
 type Plugin interface {
@@ -16,7 +16,7 @@ type Plugin interface {
 	// Per RFC5492 a BGP speaker should only send a Notification if a required
 	// capability is missing; unknown or unsupported capabilities should be
 	// ignored.
-	OnOpenMessage(peer PeerConfig, routerID net.IP, capabilities []Capability) *Notification
+	OnOpenMessage(peer PeerConfig, routerID netip.Addr, capabilities []Capability) *Notification
 
 	// OnEstablished is fired when a peer's FSM transitions to the Established
 	// state. The returned UpdateMessageHandler will be fired when an Update

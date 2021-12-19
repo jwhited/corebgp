@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -616,10 +617,10 @@ func (f *fsm) openSent() (fsmState, error) {
 					return idleState, fmt.Errorf("error validating open message: %w", err)
 				}
 				f.remoteID = m.bgpID
-				rid := make([]byte, 4)
-				binary.BigEndian.PutUint32(rid, m.bgpID)
+				var rid [4]byte
+				binary.BigEndian.PutUint32(rid[:], m.bgpID)
 
-				n := f.peer.plugin.OnOpenMessage(f.peer.config, rid, m.getCapabilities())
+				n := f.peer.plugin.OnOpenMessage(f.peer.config, netip.AddrFrom4(rid), m.getCapabilities())
 				if n != nil {
 					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)

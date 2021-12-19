@@ -1,4 +1,4 @@
-// +build integration
+//go:build integration
 
 package test
 
@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/netip"
 	"reflect"
 	"regexp"
 	"strings"
@@ -57,7 +58,7 @@ type getCapsEvent struct {
 
 type onOpenEvent struct {
 	baseEvent
-	routerID net.IP
+	routerID netip.Addr
 	caps     []corebgp.Capability
 }
 
@@ -85,7 +86,7 @@ func (p *plugin) GetCapabilities(peer corebgp.PeerConfig) []corebgp.Capability {
 	return p.caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID net.IP,
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID netip.Addr,
 	capabilities []corebgp.Capability) *corebgp.Notification {
 	p.event <- onOpenEvent{
 		baseEvent: baseEvent{
@@ -270,14 +271,14 @@ protocol bgp corebgp {
 		event:                eventCh,
 	}
 
-	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	server, err := corebgp.NewServer(netip.MustParseAddr(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  net.ParseIP(myAddress),
-		RemoteAddress: net.ParseIP(birdAddress),
+		LocalAddress:  netip.MustParseAddr(myAddress),
+		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
@@ -303,7 +304,7 @@ protocol bgp corebgp {
 
 	// verify OnOpenMessage
 	onOpen := p.wantOnOpenEvent(t, pc)
-	if !onOpen.routerID.Equal(net.ParseIP(birdAddress)) {
+	if onOpen.routerID.Compare(netip.MustParseAddr(birdAddress)) != 0 {
 		t.Errorf("expected router ID %s, got: %s", birdAddress,
 			onOpen.routerID)
 	}
@@ -452,14 +453,14 @@ protocol bgp corebgp {
 		event:                eventCh,
 	}
 
-	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	server, err := corebgp.NewServer(netip.MustParseAddr(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  net.ParseIP(myAddress),
-		RemoteAddress: net.ParseIP(birdAddress),
+		LocalAddress:  netip.MustParseAddr(myAddress),
+		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
@@ -542,14 +543,14 @@ protocol bgp corebgp {
 		event:                eventCh,
 	}
 
-	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	server, err := corebgp.NewServer(netip.MustParseAddr(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  net.ParseIP(myAddress),
-		RemoteAddress: net.ParseIP(birdAddress),
+		LocalAddress:  netip.MustParseAddr(myAddress),
+		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
@@ -624,14 +625,14 @@ protocol bgp corebgp {
 		event:                eventCh,
 	}
 
-	server, err := corebgp.NewServer(net.ParseIP(myAddress))
+	server, err := corebgp.NewServer(netip.MustParseAddr(myAddress))
 	if err != nil {
 		t.Fatalf("error constructing server: %v", err)
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  net.ParseIP(myAddress),
-		RemoteAddress: net.ParseIP(birdAddress),
+		LocalAddress:  netip.MustParseAddr(myAddress),
+		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
@@ -641,8 +642,7 @@ protocol bgp corebgp {
 			var seterr error
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = corebgp.SetTCPMD5Signature(fd, pc.RemoteAddress,
-					32, "password")
+				seterr = corebgp.SetTCPMD5Signature(fd, pc.RemoteAddress, "password")
 			})
 			if err != nil {
 				return err
