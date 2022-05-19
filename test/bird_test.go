@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package test
@@ -5,7 +6,6 @@ package test
 import (
 	"bufio"
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -169,16 +169,6 @@ func (p *plugin) wantOnCloseEvent(t *testing.T, pc corebgp.PeerConfig) onCloseEv
 	return want
 }
 
-func newMPCap(afi uint16, safi uint8) corebgp.Capability {
-	mpData := make([]byte, 4)
-	binary.BigEndian.PutUint16(mpData, afi)
-	mpData[3] = safi
-	return corebgp.Capability{
-		Code:  1,
-		Value: mpData,
-	}
-}
-
 func verifyPeerConfig(t *testing.T, event pluginEvent, config corebgp.PeerConfig) {
 	if !reflect.DeepEqual(event.peer(), config) {
 		t.Fatalf("unexpected peer: %v", event.peer())
@@ -262,8 +252,8 @@ protocol bgp corebgp {
 
 	p := &plugin{
 		caps: []corebgp.Capability{
-			newMPCap(1, 1), // ipv4 unicast
-			newMPCap(2, 1), // ipv6 unicast
+			corebgp.NewMPExtensionsCapability(corebgp.AFI_IPV4, corebgp.SAFI_UNICAST),
+			corebgp.NewMPExtensionsCapability(corebgp.AFI_IPV6, corebgp.SAFI_UNICAST),
 		},
 		openNotification:     nil,
 		updateMessageHandler: onUpdateFn,
@@ -445,7 +435,7 @@ protocol bgp corebgp {
 
 	p := &plugin{
 		caps: []corebgp.Capability{
-			newMPCap(1, 1), // ipv4 unicast
+			corebgp.NewMPExtensionsCapability(corebgp.AFI_IPV4, corebgp.SAFI_UNICAST),
 		},
 		openNotification:     notification,
 		updateMessageHandler: nil,
@@ -535,7 +525,7 @@ protocol bgp corebgp {
 	}
 	p := &plugin{
 		caps: []corebgp.Capability{
-			newMPCap(1, 1), // ipv4 unicast
+			corebgp.NewMPExtensionsCapability(corebgp.AFI_IPV4, corebgp.SAFI_UNICAST),
 		},
 		openNotification:     nil,
 		updateMessageHandler: onUpdateFn,
@@ -618,7 +608,7 @@ protocol bgp corebgp {
 	eventCh := make(chan pluginEvent, 1000)
 	p := &plugin{
 		caps: []corebgp.Capability{
-			newMPCap(1, 1), // ipv4 unicast
+			corebgp.NewMPExtensionsCapability(corebgp.AFI_IPV4, corebgp.SAFI_UNICAST),
 		},
 		updateMessageHandler: nil,
 		event:                eventCh,
