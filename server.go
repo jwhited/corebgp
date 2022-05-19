@@ -39,8 +39,9 @@ func NewServer(routerID net.IP) (*Server, error) {
 }
 
 var (
-	ErrServerClosed = errors.New("server closed")
-	ErrPeerNotExist = errors.New("peer does not exist")
+	ErrServerClosed      = errors.New("server closed")
+	ErrPeerNotExist      = errors.New("peer does not exist")
+	ErrPeerAlreadyExists = errors.New("peer already exists")
 )
 
 // Serve starts all peers' FSMs, starts handling incoming connections if a
@@ -152,11 +153,23 @@ type PeerConfig struct {
 }
 
 func (p PeerConfig) validate() error {
-	if !((p.LocalAddress.To4() != nil && p.RemoteAddress.To4() != nil) ||
-		(p.LocalAddress.To16() != nil && p.RemoteAddress.To16() != nil)) {
-		return errors.New("invalid local/remote address pair")
+	localIsIPv4 := p.LocalAddress.To4() != nil
+	remoteIsIPv4 := p.RemoteAddress.To4() != nil
+	if localIsIPv4 != remoteIsIPv4 {
+		return errors.New("mixed address family peer address pair")
+	}
+	if !localIsIPv4 {
+		if p.LocalAddress.To16() == nil || p.RemoteAddress.To16() == nil {
+			return errors.New("invalid peer address pair")
+		}
 	}
 	// https://tools.ietf.org/html/rfc7607
+	//
+	// If a BGP speaker receives zero as the peer AS in an OPEN message, it
+	// MUST abort the connection and send a NOTIFICATION with Error Code
+	// "OPEN Message Error" and subcode "Bad Peer AS" (see Section 6 of
+	// [RFC4271]).  A router MUST NOT initiate a connection claiming to be
+	// AS 0.
 	if p.LocalAS == 0 || p.RemoteAS == 0 {
 		return errors.New("AS must be > 0")
 	}
@@ -175,7 +188,7 @@ func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	defer s.mu.Unlock()
 	_, exists := s.peers[config.RemoteAddress.String()]
 	if exists {
-		return errors.New("peer already exists")
+		return ErrPeerAlreadyExists
 	}
 	o := defaultPeerOptions()
 	for _, opt := range opts {
@@ -201,7 +214,9 @@ func (s *Server) DeletePeer(ip net.IP) error {
 	if !exists {
 		return ErrPeerNotExist
 	}
-	p.stop()
+	if s.serving {
+		p.stop()
+	}
 	delete(s.peers, ip.String())
 	return nil
 }
