@@ -67,6 +67,18 @@ func prependHeader(m []byte, t uint8) []byte {
 	return b
 }
 
+// NewMPExtensionsCapability returns a Multiprotocol Extensions Capability for
+// the provided AFI and SAFI.
+func NewMPExtensionsCapability(afi uint16, safi uint8) Capability {
+	mpData := make([]byte, 4)
+	binary.BigEndian.PutUint16(mpData, afi)
+	mpData[3] = safi
+	return Capability{
+		Code:  CAP_MP_EXTENSIONS,
+		Value: mpData,
+	}
+}
+
 // Notification is a Notification message.
 type Notification struct {
 	Code    uint8
@@ -213,7 +225,7 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 	}
 	caps := o.getCapabilities()
 	for _, c := range caps {
-		if c.Code == capCodeFourOctetAS {
+		if c.Code == CAP_FOUR_OCTET_AS {
 			fourOctetASFound = true
 			if len(c.Value) != 4 {
 				n := newNotification(NotifCodeOpenMessageErr, 0, nil)
@@ -327,10 +339,6 @@ func (o *openMessage) encode() ([]byte, error) {
 }
 
 const (
-	capCodeFourOctetAS uint8 = 65
-)
-
-const (
 	asTrans uint16 = 23456
 )
 
@@ -338,14 +346,14 @@ func newOpenMessage(asn uint32, holdTime time.Duration, bgpID uint32,
 	caps []Capability) (*openMessage, error) {
 	allCaps := make([]Capability, 0)
 	fourOctetAS := Capability{
-		Code:  capCodeFourOctetAS,
+		Code:  CAP_FOUR_OCTET_AS,
 		Value: make([]byte, 4),
 	}
 	binary.BigEndian.PutUint32(fourOctetAS.Value, asn)
 	allCaps = append(allCaps, fourOctetAS)
 	for _, c := range caps {
 		// ignore four octet as capability as we include this implicitly above
-		if c.Code != capCodeFourOctetAS {
+		if c.Code != CAP_FOUR_OCTET_AS {
 			allCaps = append(allCaps, c)
 		}
 	}
