@@ -110,3 +110,104 @@ const (
 	SAFI_L3VPN_DISSEMINATION_OF_FLOWSPEC_RULES uint8 = 134 // L3VPN Dissemination of Flow Specification rules
 	SAFI_VPN_AUTO_DISCOVERY                    uint8 = 140 // VPN auto-discovery
 )
+
+// BGP Path Attributes, Updated: 2022-05-13
+const (
+	PATH_ATTR_ORIGIN                                uint8 = 1   // ORIGIN
+	PATH_ATTR_AS_PATH                               uint8 = 2   // AS_PATH
+	PATH_ATTR_NEXT_HOP                              uint8 = 3   // NEXT_HOP
+	PATH_ATTR_MED                                   uint8 = 4   // MULTI_EXIT_DISC
+	PATH_ATTR_LOCAL_PREF                            uint8 = 5   // LOCAL_PREF
+	PATH_ATTR_ATOMIC_AGGREGATE                      uint8 = 6   // ATOMIC_AGGREGATE
+	PATH_ATTR_AGGREGATOR                            uint8 = 7   // AGGREGATOR
+	PATH_ATTR_COMMUNITY                             uint8 = 8   // COMMUNITY
+	PATH_ATTR_ORIGINATOR_ID                         uint8 = 9   // ORIGINATOR_ID
+	PATH_ATTR_CLUSTER_LIST                          uint8 = 10  // CLUSTER_LIST
+	PATH_ATTR_MP_REACH_NLRI                         uint8 = 14  // MP_REACH_NLRI
+	PATH_ATTR_MP_UNREACH_NLRI                       uint8 = 15  // MP_UNREACH_NLRI
+	PATH_ATTR_EXTENDED_COMMUNITIES                  uint8 = 16  // EXTENDED COMMUNITIES
+	PATH_ATTR_AS4_PATH                              uint8 = 17  // AS4_PATH
+	PATH_ATTR_AS4_AGGREGATOR                        uint8 = 18  // AS4_AGGREGATOR
+	PATH_ATTR_PMSI_TUNNEL                           uint8 = 22  // PMSI_TUNNEL
+	PATH_ATTR_TUNNEL_ENCAPSULATION                  uint8 = 23  // Tunnel Encapsulation
+	PATH_ATTR_TRAFFIC_ENGINEERING                   uint8 = 24  // Traffic Engineering
+	PATH_ATTR_IPV6_ADDR_SPECIFIC_EXTENDED_COMMUNITY uint8 = 25  // IPv6 Address Specific Extended Community
+	PATH_ATTR_AIGP                                  uint8 = 26  // AIGP
+	PATH_ATTR_PE_DISTINGUISHER_LABELS               uint8 = 27  // PE Distinguisher Labels
+	PATH_ATTR_BGP_LS                                uint8 = 29  // BGP-LS Attribute
+	PATH_ATTR_LARGE_COMMUNITY                       uint8 = 32  // LARGE_COMMUNITY
+	PATH_ATTR_BGPSEC_PATH                           uint8 = 33  // BGPsec_Path
+	PATH_ATTR_OTC                                   uint8 = 35  // Only to Customer (OTC)
+	PATH_ATTR_SFP_ATTRIBUTE                         uint8 = 37  // SFP attribute
+	PATH_ATTR_BFD_DISCRIMINATOR                     uint8 = 38  // BFD Discriminator
+	PATH_ATTR_BGP_PREFIX_SID                        uint8 = 40  // BGP Prefix-SID
+	PATH_ATTR_ATTR_SET                              uint8 = 128 // ATTR_SET
+)
+
+// BGP Error (Notification) Codes, Updated: 2022-05-13
+const (
+	NOTIF_CODE_MESSAGE_HEADER_ERR        uint8 = 1 // Message Header Error
+	NOTIF_CODE_OPEN_MESSAGE_ERR          uint8 = 2 // OPEN Message Error
+	NOTIF_CODE_UPDATE_MESSAGE_ERR        uint8 = 3 // UPDATE Message Error
+	NOTIF_CODE_HOLD_TIMER_EXPIRED        uint8 = 4 // Hold Timer Expired
+	NOTIF_CODE_FSM_ERR                   uint8 = 5 // Finite State Machine Error
+	NOTIF_CODE_CEASE                     uint8 = 6 // Cease
+	NOTIF_CODE_ROUTE_REFRESH_MESSAGE_ERR uint8 = 7 // ROUTE-REFRESH Message Error
+)
+
+// Message Header Error subcodes, Updated: 2022-05-13
+const (
+	NOTIF_SUBCODE_CONN_NOT_SYNCHRONIZED uint8 = 1 // Connection Not Synchronized
+	NOTIF_SUBCODE_BAD_MESSAGE_LENGTH    uint8 = 2 // Bad Message Length
+	NOTIF_SUBCODE_BAD_MESSAGE_TYPE      uint8 = 3 // Bad Message Type
+)
+
+// OPEN Message Error subcodes, Updated: 2022-05-13
+const (
+	NOTIF_SUBCODE_UNSUPPORTED_VERSION_NUM    uint8 = 1  // Unsupported Version Number
+	NOTIF_SUBCODE_BAD_PEER_AS                uint8 = 2  // Bad Peer AS
+	NOTIF_SUBCODE_BAD_BGP_ID                 uint8 = 3  // Bad BGP Identifier
+	NOTIF_SUBCODE_UNSUPPORTED_OPTIONAL_PARAM uint8 = 4  // Unsupported Optional Parameter
+	NOTIF_SUBCODE_UNACCEPTABLE_HOLD_TIME     uint8 = 6  // Unacceptable Hold Time
+	NOTIF_SUBCODE_UNSUPPORTED_CAPABILITY     uint8 = 7  // Unsupported Capability
+	NOTIF_SUBCODE_ROLE_MISMATCH              uint8 = 11 // Role Mismatch
+)
+
+// UPDATE Message Error subcodes, Updated: 2022-05-13
+const (
+	NOTIF_SUBCODE_MALFORMED_ATTR_LIST          uint8 = 1  // Malformed Attribute List
+	NOTIF_SUBCODE_UNRECOGNIZED_WELL_KNOWN_ATTR uint8 = 2  // Unrecognized Well-known Attribute
+	NOTIF_SUBCODE_MISSING_WELL_KNOWN_ATTR      uint8 = 3  // Missing Well-known Attribute
+	NOTIF_SUBCODE_ATTR_FLAGS_ERR               uint8 = 4  // Attribute Flags Error
+	NOTIF_SUBCODE_ATTR_LENGTH_ERR              uint8 = 5  // Attribute Length Error
+	NOTIF_SUBCODE_INVALID_ORIGIN_ATTR          uint8 = 6  // Invalid ORIGIN Attribute
+	NOTIF_SUBCODE_INVALID_NEXT_HOP_ATTR        uint8 = 8  // Invalid NEXT_HOP Attribute
+	NOTIF_SUBCODE_OPTIONAL_ATTR_ERR            uint8 = 9  // Optional Attribute Error
+	NOTIF_SUBCODE_INVALID_NETWORK_FIELD        uint8 = 10 // Invalid Network Field
+	NOTIF_SUBCODE_MALFORMED_AS_PATH            uint8 = 11 // Malformed AS_PATH
+)
+
+// BGP Finite State Machine Error Subcodes, Updated: 2022-05-13
+const (
+	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENSENT    uint8 = 1 // Receive Unexpected Message in OpenSent State
+	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENCONFIRM uint8 = 2 // Receive Unexpected Message in OpenConfirm State
+	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_ESTABLISHED uint8 = 3 // Receive Unexpected Message in Established State
+)
+
+// BGP Cease NOTIFICATION message subcodes, Updated: 2022-05-13
+const (
+	NOTIF_SUBCODE_MAX_NUM_OF_PREFIXES_REACHED uint8 = 1 // Maximum Number of Prefixes Reached
+	NOTIF_SUBCODE_ADMIN_SHUTDOWN              uint8 = 2 // Administrative Shutdown
+	NOTIF_SUBCODE_PEER_DE_CONFIGURED          uint8 = 3 // Peer De-configured
+	NOTIF_SUBCODE_ADMIN_RESET                 uint8 = 4 // Administrative Reset
+	NOTIF_SUBCODE_CONN_REJECTED               uint8 = 5 // Connection Rejected
+	NOTIF_SUBCODE_OTHER_CONFIG_CHANGE         uint8 = 6 // Other Configuration Change
+	NOTIF_SUBCODE_CONN_COLLISION_RESOLUTION   uint8 = 7 // Connection Collision Resolution
+	NOTIF_SUBCODE_OUT_OF_RESOURCES            uint8 = 8 // Out of Resources
+	NOTIF_SUBCODE_HARD_RESET                  uint8 = 9 // Hard Reset
+)
+
+// BGP ROUTE-REFRESH Message Error subcodes, Updated: 2022-05-13
+const (
+	NOTIF_SUBCODE_INVALID_MESSAGE_LENGTH uint8 = 1 // Invalid Message Length
+)

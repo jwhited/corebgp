@@ -15,7 +15,7 @@ func newNotificationError(n *Notification, out bool) *notificationError {
 }
 
 func (n *notificationError) dampPeer() bool {
-	return n.notification.Code != NotifCodeCease
+	return n.notification.Code != NOTIF_CODE_CEASE
 }
 
 func (n *notificationError) Error() string {
