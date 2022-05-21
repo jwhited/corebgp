@@ -49,8 +49,8 @@ func messageFromBytes(b []byte, messageType uint8) (message, error) {
 	default:
 		badType := make([]byte, 1)
 		badType[0] = messageType
-		n := newNotification(NotifCodeMessageHeaderErr, NotifSubcodeBadType,
-			badType)
+		n := newNotification(NOTIF_CODE_MESSAGE_HEADER_ERR,
+			NOTIF_SUBCODE_BAD_MESSAGE_TYPE, badType)
 		return nil, newNotificationError(n, true)
 	}
 }
@@ -130,54 +130,6 @@ func (n *Notification) encode() ([]byte, error) {
 	return prependHeader(b, notificationMessageType), nil
 }
 
-// Notification code values
-const (
-	NotifCodeMessageHeaderErr uint8 = 1
-	NotifCodeOpenMessageErr   uint8 = 2
-	NotifCodeUpdateMessageErr uint8 = 3
-	NotifCodeHoldTimerExpired uint8 = 4
-	NotifCodeFSMErr           uint8 = 5
-	NotifCodeCease            uint8 = 6
-)
-
-// message header Notification subcode values
-const (
-	NotifSubcodeConnNotSync uint8 = 1
-	NotifSubcodeBadLength   uint8 = 2
-	NotifSubcodeBadType     uint8 = 3
-)
-
-// open message Notification subcode values
-const (
-	NotifSubcodeUnsupportedVersionNumber uint8 = 1
-	NotifSubcodeBadPeerAS                uint8 = 2
-	NotifSubcodeBadBgpID                 uint8 = 3
-	NotifSubcodeUnsupportedOptionalParam uint8 = 4
-	NotifSubcodeUnacceptableHoldTime     uint8 = 5
-	NotifSubcodeUnsupportedCapability    uint8 = 6
-)
-
-// update message Notification subcode values
-const (
-	NotifSubcodeMalformedAttr             uint8 = 1
-	NotifSubcodeUnrecognizedWellKnownAttr uint8 = 2
-	NotifSubcodeMissingWellKnownAttr      uint8 = 3
-	NotifSubcodeAttrFlagsError            uint8 = 4
-	NotifSubcodeAttrLenError              uint8 = 5
-	NotifSubcodeInvalidOrigin             uint8 = 6
-	NotifSubcodeInvalidNextHop            uint8 = 8
-	NotifSubcodeOptionalAttrError         uint8 = 9
-	NotifSubcodeInvalidNetworkField       uint8 = 10
-	NotifSubcodeMalformedASPath           uint8 = 11
-)
-
-// finite state machine error subcode values [RFC6608]
-const (
-	NotifSubcodeUnexpectedMessageOpenSent    uint8 = 1
-	NotifSubcodeUnexpectedMessageOpenConfirm uint8 = 2
-	NotifSubcodeUnexpectedMessageEstablished uint8 = 3
-)
-
 type openMessage struct {
 	version        uint8
 	asn            uint16
@@ -195,32 +147,34 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 	if o.version != 4 {
 		version := make([]byte, 2)
 		binary.BigEndian.PutUint16(version, uint16(4))
-		n := newNotification(NotifCodeOpenMessageErr,
-			NotifSubcodeUnsupportedVersionNumber, version)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_UNSUPPORTED_VERSION_NUM, version)
 		return newNotificationError(n, true)
 	}
 	var fourOctetAS, fourOctetASFound bool
 	if o.asn == asTrans {
 		fourOctetAS = true
 	} else if uint32(o.asn) != remoteAS {
-		n := newNotification(NotifCodeOpenMessageErr, NotifSubcodeBadPeerAS,
-			nil)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_BAD_PEER_AS, nil)
 		return newNotificationError(n, true)
 	}
 	if o.holdTime < 3 && o.holdTime != 0 {
-		n := newNotification(NotifCodeOpenMessageErr,
-			NotifSubcodeUnacceptableHoldTime, nil)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_UNACCEPTABLE_HOLD_TIME, nil)
 		return newNotificationError(n, true)
 	}
 	id := net.IP(make([]byte, 4))
 	binary.BigEndian.PutUint32(id, o.bgpID)
 	if !id.IsGlobalUnicast() {
-		n := newNotification(NotifCodeOpenMessageErr, NotifSubcodeBadBgpID, nil)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_BAD_BGP_ID, nil)
 		return newNotificationError(n, true)
 	}
 	// https://tools.ietf.org/html/rfc6286#section-2.2
 	if localAS == remoteAS && localID == o.bgpID {
-		n := newNotification(NotifCodeOpenMessageErr, NotifSubcodeBadBgpID, nil)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_BAD_BGP_ID, nil)
 		return newNotificationError(n, true)
 	}
 	caps := o.getCapabilities()
@@ -228,19 +182,19 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 		if c.Code == CAP_FOUR_OCTET_AS {
 			fourOctetASFound = true
 			if len(c.Value) != 4 {
-				n := newNotification(NotifCodeOpenMessageErr, 0, nil)
+				n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR, 0, nil)
 				return newNotificationError(n, true)
 			}
 			if binary.BigEndian.Uint32(c.Value) != remoteAS {
-				n := newNotification(NotifCodeOpenMessageErr,
-					NotifSubcodeBadPeerAS, nil)
+				n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+					NOTIF_SUBCODE_BAD_PEER_AS, nil)
 				return newNotificationError(n, true)
 			}
 		}
 	}
 	if fourOctetAS && !fourOctetASFound {
-		n := newNotification(NotifCodeOpenMessageErr, NotifSubcodeBadPeerAS,
-			nil)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_BAD_PEER_AS, nil)
 		return newNotificationError(n, true)
 	}
 	return nil
@@ -259,8 +213,8 @@ func (o *openMessage) getCapabilities() []Capability {
 
 func (o *openMessage) decode(b []byte) error {
 	if len(b) < 10 {
-		n := newNotification(NotifCodeMessageHeaderErr, NotifSubcodeBadLength,
-			b)
+		n := newNotification(NOTIF_CODE_MESSAGE_HEADER_ERR,
+			NOTIF_SUBCODE_BAD_MESSAGE_LENGTH, b)
 		return newNotificationError(n, true)
 	}
 	o.version = b[0]
@@ -269,7 +223,7 @@ func (o *openMessage) decode(b []byte) error {
 	o.bgpID = binary.BigEndian.Uint32(b[5:9])
 	optionalParamsLen := int(b[9])
 	if optionalParamsLen != len(b)-10 {
-		n := newNotification(NotifCodeOpenMessageErr, 0, nil)
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR, 0, nil)
 		return newNotificationError(n, true)
 	}
 	optionalParams, err := decodeOptionalParams(b[10:])
@@ -284,13 +238,13 @@ func decodeOptionalParams(b []byte) ([]optionalParam, error) {
 	params := make([]optionalParam, 0)
 	for {
 		if len(b) < 2 {
-			n := newNotification(NotifCodeOpenMessageErr, 0, nil)
+			n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR, 0, nil)
 			return nil, newNotificationError(n, true)
 		}
 		paramCode := b[0]
 		paramLen := b[1]
 		if len(b) < int(paramLen)+2 {
-			n := newNotification(NotifCodeOpenMessageErr, 0, nil)
+			n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR, 0, nil)
 			return nil, newNotificationError(n, true)
 		}
 		paramToDecode := make([]byte, 0)
@@ -308,8 +262,8 @@ func decodeOptionalParams(b []byte) ([]optionalParam, error) {
 			}
 			params = append(params, c)
 		default:
-			n := newNotification(NotifCodeOpenMessageErr,
-				NotifSubcodeUnsupportedOptionalParam, nil)
+			n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+				NOTIF_SUBCODE_UNSUPPORTED_OPTIONAL_PARAM, nil)
 			return nil, newNotificationError(n, true)
 		}
 		if len(b) == 0 {
@@ -396,13 +350,13 @@ func (c *capabilityOptionalParam) paramType() uint8 {
 func (c *capabilityOptionalParam) decode(b []byte) error {
 	for {
 		if len(b) < 2 {
-			n := newNotification(NotifCodeOpenMessageErr, 0, nil)
+			n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR, 0, nil)
 			return newNotificationError(n, true)
 		}
 		capCode := b[0]
 		capLen := b[1]
 		if len(b) < int(capLen)+2 {
-			n := newNotification(NotifCodeOpenMessageErr, 0, nil)
+			n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR, 0, nil)
 			return newNotificationError(n, true)
 		}
 		capValue := make([]byte, 0)

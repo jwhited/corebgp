@@ -429,7 +429,7 @@ protocol bgp corebgp {
 
 	eventCh := make(chan pluginEvent, 1000)
 	notification := &corebgp.Notification{
-		Code: corebgp.NotifCodeOpenMessageErr,
+		Code: corebgp.NOTIF_CODE_OPEN_MESSAGE_ERR,
 		Data: []byte{},
 	}
 
@@ -510,7 +510,7 @@ protocol bgp corebgp {
 
 	eventCh := make(chan pluginEvent, 1000)
 	notification := &corebgp.Notification{
-		Code: corebgp.NotifCodeUpdateMessageErr,
+		Code: corebgp.NOTIF_CODE_UPDATE_MESSAGE_ERR,
 		Data: []byte{},
 	}
 	onUpdateFn := func(peer corebgp.PeerConfig, update []byte) *corebgp.Notification {

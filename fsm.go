@@ -140,7 +140,7 @@ func (f *fsm) run() {
 			t.from > activeState {
 			// we were disabled while transitioning to a target state with an
 			// active connection
-			f.sendNotification(newNotification(NotifCodeCease, 0, nil)) // nolint: errcheck
+			f.sendNotification(newNotification(NOTIF_CODE_CEASE, 0, nil)) // nolint: errcheck
 		}
 
 		var (
@@ -448,8 +448,8 @@ func (f *fsm) read() {
 
 		for i := 0; i < 16; i++ {
 			if header[i] != 0xFF {
-				n := newNotification(NotifCodeMessageHeaderErr,
-					NotifSubcodeConnNotSync, nil)
+				n := newNotification(NOTIF_CODE_MESSAGE_HEADER_ERR,
+					NOTIF_SUBCODE_CONN_NOT_SYNCHRONIZED, nil)
 				select {
 				case <-f.closeReaderCh:
 					return
@@ -462,8 +462,8 @@ func (f *fsm) read() {
 		// length is inclusive of header
 		bodyLen := int(binary.BigEndian.Uint16(header[16:18])) - headerLength
 		if bodyLen < 0 || bodyLen+headerLength > maxMessageLength {
-			n := newNotification(NotifCodeMessageHeaderErr,
-				NotifSubcodeBadLength, nil)
+			n := newNotification(NOTIF_CODE_MESSAGE_HEADER_ERR,
+				NOTIF_SUBCODE_BAD_MESSAGE_LENGTH, nil)
 			select {
 			case <-f.closeReaderCh:
 				return
@@ -546,7 +546,7 @@ func (f *fsm) openSent() (fsmState, error) {
 	openSent := func() (fsmState, error) {
 		select {
 		case <-f.closeCh:
-			n := newNotification(NotifCodeCease, 0, nil)
+			n := newNotification(NOTIF_CODE_CEASE, 0, nil)
 			f.sendNotification(n) // nolint: errcheck
 			return disabledState, newNotificationError(n, true)
 		case <-f.holdTimer.C:
@@ -564,7 +564,7 @@ func (f *fsm) openSent() (fsmState, error) {
 					   DampPeerOscillations attribute is set to TRUE, and
 					 - changes its state to Idle.
 			*/
-			n := newNotification(NotifCodeHoldTimerExpired, 0, nil)
+			n := newNotification(NOTIF_CODE_HOLD_TIMER_EXPIRED, 0, nil)
 			f.sendNotification(n) // nolint: errcheck
 			return idleState, newNotificationError(n, true)
 		case err := <-f.readerErrCh:
@@ -668,8 +668,8 @@ func (f *fsm) openSent() (fsmState, error) {
 					Message in OpenSent State".  The Data field is a 1-octet, unsigned
 					integer that indicates the type of the unexpected message.
 				*/
-				n := newNotification(NotifCodeFSMErr,
-					NotifSubcodeUnexpectedMessageOpenSent,
+				n := newNotification(NOTIF_CODE_FSM_ERR,
+					NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENSENT,
 					[]byte{m.messageType()})
 				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
@@ -691,11 +691,11 @@ func (f *fsm) openConfirm() (fsmState, error) {
 		for {
 			select {
 			case <-f.closeCh:
-				n := newNotification(NotifCodeCease, 0, nil)
+				n := newNotification(NOTIF_CODE_CEASE, 0, nil)
 				f.sendNotification(n) // nolint: errcheck
 				return disabledState, newNotificationError(n, true)
 			case <-f.holdTimer.C:
-				n := newNotification(NotifCodeHoldTimerExpired, 0, nil)
+				n := newNotification(NOTIF_CODE_HOLD_TIMER_EXPIRED, 0, nil)
 				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
 			case <-f.keepAliveTimer.C:
@@ -749,8 +749,8 @@ func (f *fsm) openConfirm() (fsmState, error) {
 						OpenConfirm State" to the neighbor.  The Data field is a 1-octet,
 						unsigned integer that indicates the type of the unexpected message.
 					*/
-					n := newNotification(NotifCodeFSMErr,
-						NotifSubcodeUnexpectedMessageOpenConfirm,
+					n := newNotification(NOTIF_CODE_FSM_ERR,
+						NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENCONFIRM,
 						[]byte{m.messageType()})
 					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)
@@ -835,11 +835,11 @@ func (f *fsm) established() (fsmState, error) {
 		for {
 			select {
 			case <-f.closeCh:
-				n := newNotification(NotifCodeCease, 0, nil)
+				n := newNotification(NOTIF_CODE_CEASE, 0, nil)
 				f.sendNotification(n) // nolint: errcheck
 				return disabledState, newNotificationError(n, true)
 			case <-f.holdTimer.C:
-				n := newNotification(NotifCodeHoldTimerExpired, 0, nil)
+				n := newNotification(NOTIF_CODE_HOLD_TIMER_EXPIRED, 0, nil)
 				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
 			case <-f.keepAliveTimer.C:
@@ -928,8 +928,8 @@ func (f *fsm) established() (fsmState, error) {
 						State".  The Data field is a 1-octet, unsigned integer that indicates
 						the type of the unexpected message.
 					*/
-					n := newNotification(NotifCodeFSMErr,
-						NotifSubcodeUnexpectedMessageEstablished,
+					n := newNotification(NOTIF_CODE_FSM_ERR,
+						NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_ESTABLISHED,
 						[]byte{m.messageType()})
 					f.sendNotification(n) // nolint: errcheck
 					return idleState, newNotificationError(n, true)
