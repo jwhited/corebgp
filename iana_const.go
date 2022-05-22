@@ -211,3 +211,80 @@ const (
 const (
 	NOTIF_SUBCODE_INVALID_MESSAGE_LEN uint8 = 1 // Invalid Message Length
 )
+
+type notifCodeDescAndSubcodes struct {
+	desc     string
+	subcodes map[uint8]string
+}
+
+var (
+	notifCodesMap = map[uint8]notifCodeDescAndSubcodes{
+		NOTIF_CODE_MESSAGE_HEADER_ERR: {
+			desc: "Message Header Error",
+			subcodes: map[uint8]string{
+				NOTIF_SUBCODE_CONN_NOT_SYNCHRONIZED: "Connection Not Synchronized",
+				NOTIF_SUBCODE_BAD_MESSAGE_LEN:       "Bad Message Length",
+				NOTIF_SUBCODE_BAD_MESSAGE_TYPE:      "Bad Message Type",
+			},
+		},
+		NOTIF_CODE_OPEN_MESSAGE_ERR: {
+			desc: "OPEN Message Error",
+			subcodes: map[uint8]string{
+				NOTIF_SUBCODE_UNSUPPORTED_VERSION_NUM:    "Unsupported Version Number",
+				NOTIF_SUBCODE_BAD_PEER_AS:                "Bad Peer AS",
+				NOTIF_SUBCODE_BAD_BGP_ID:                 "Bad BGP Identifier",
+				NOTIF_SUBCODE_UNSUPPORTED_OPTIONAL_PARAM: "Unsupported Optional Parameter",
+				NOTIF_SUBCODE_UNACCEPTABLE_HOLD_TIME:     "Unacceptable Hold Time",
+				NOTIF_SUBCODE_UNSUPPORTED_CAPABILITY:     "Unsupported Capability",
+				NOTIF_SUBCODE_ROLE_MISMATCH:              "Role Mismatch",
+			},
+		},
+		NOTIF_CODE_UPDATE_MESSAGE_ERR: {
+			desc: "UPDATE Message Error",
+			subcodes: map[uint8]string{
+				NOTIF_SUBCODE_MALFORMED_ATTR_LIST:          "Malformed Attribute List",
+				NOTIF_SUBCODE_UNRECOGNIZED_WELL_KNOWN_ATTR: "Unrecognized Well-known Attribute",
+				NOTIF_SUBCODE_MISSING_WELL_KNOWN_ATTR:      "Missing Well-known Attribute",
+				NOTIF_SUBCODE_ATTR_FLAGS_ERR:               "Attribute Flags Error",
+				NOTIF_SUBCODE_ATTR_LEN_ERR:                 "Attribute Length Error",
+				NOTIF_SUBCODE_INVALID_ORIGIN_ATTR:          "Invalid ORIGIN Attribute",
+				NOTIF_SUBCODE_INVALID_NEXT_HOP_ATTR:        "Invalid NEXT_HOP Attribute",
+				NOTIF_SUBCODE_OPTIONAL_ATTR_ERR:            "Optional Attribute Error",
+				NOTIF_SUBCODE_INVALID_NETWORK_FIELD:        "Invalid Network Field",
+				NOTIF_SUBCODE_MALFORMED_AS_PATH:            "Malformed AS_PATH",
+			},
+		},
+		NOTIF_CODE_HOLD_TIMER_EXPIRED: {
+			desc:     "Hold Timer Expired",
+			subcodes: map[uint8]string{},
+		},
+		NOTIF_CODE_FSM_ERR: {
+			desc: "Finite State Machine Error",
+			subcodes: map[uint8]string{
+				NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENSENT:    "Receive Unexpected Message in OpenSent State",
+				NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENCONFIRM: "Receive Unexpected Message in OpenConfirm State",
+				NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_ESTABLISHED: "Receive Unexpected Message in Established State",
+			},
+		},
+		NOTIF_CODE_CEASE: {
+			desc: "Cease",
+			subcodes: map[uint8]string{
+				NOTIF_SUBCODE_MAX_NUM_OF_PREFIXES_REACHED: "Maximum Number of Prefixes Reached",
+				NOTIF_SUBCODE_ADMIN_SHUTDOWN:              "Administrative Shutdown",
+				NOTIF_SUBCODE_PEER_DECONFIGURED:           "Peer De-configured",
+				NOTIF_SUBCODE_ADMIN_RESET:                 "Administrative Reset",
+				NOTIF_SUBCODE_CONN_REJECTED:               "Connection Rejected",
+				NOTIF_SUBCODE_OTHER_CONFIG_CHANGE:         "Other Configuration Change",
+				NOTIF_SUBCODE_CONN_COLLISION_RESOLUTION:   "Connection Collision Resolution",
+				NOTIF_SUBCODE_OUT_OF_RESOURCES:            "Out of Resources",
+				NOTIF_SUBCODE_HARD_RESET:                  "Hard Reset",
+			},
+		},
+		NOTIF_CODE_ROUTE_REFRESH_MESSAGE_ERR: {
+			desc: "ROUTE-REFRESH Message Error",
+			subcodes: map[uint8]string{
+				NOTIF_SUBCODE_INVALID_MESSAGE_LEN: "Invalid Message Length",
+			},
+		},
+	}
+)

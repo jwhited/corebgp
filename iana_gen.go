@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -540,8 +541,15 @@ func escapeNotificationSubcodes(records []bgpParametersRecord) []constRecord {
 	return constRecords
 }
 
-func (a *bgpParametersRegistry) escape() []bgpParametersBlock {
+type notifCodeAndSubcodes struct {
+	constRecord
+	subcodes []constRecord
+}
+
+func (a *bgpParametersRegistry) escape() ([]bgpParametersBlock,
+	[]notifCodeAndSubcodes) {
 	bgpParametersBlocks := make([]bgpParametersBlock, 0)
+	codes := make(map[int]*notifCodeAndSubcodes)
 	for _, registry := range a.Registries {
 		switch registry.Title {
 		case "BGP Path Attributes":
@@ -556,19 +564,43 @@ func (a *bgpParametersRegistry) escape() []bgpParametersBlock {
 			}
 			b.records = escapeNotificationCodes(registry.Records)
 			bgpParametersBlocks = append(bgpParametersBlocks, b)
+			for _, record := range b.records {
+				codes[record.value] = &notifCodeAndSubcodes{
+					constRecord: record,
+					subcodes:    make([]constRecord, 0),
+				}
+			}
 		case "BGP Error Subcodes":
+			var i = 1
 			for _, innerRegistry := range registry.Registries {
 				b := bgpParametersBlock{
 					title: innerRegistry.Title,
 				}
 				b.records = escapeNotificationSubcodes(innerRegistry.Records)
 				bgpParametersBlocks = append(bgpParametersBlocks, b)
+				c := codes[i]
+				for _, record := range b.records {
+					c.subcodes = append(c.subcodes, record)
+				}
+				if i == 3 {
+					// skip 4, hold timer expired has no subcodes
+					i += 2
+				} else {
+					i++
+				}
 			}
 		default:
 			continue
 		}
 	}
-	return bgpParametersBlocks
+	sorted := make([]notifCodeAndSubcodes, 0)
+	for _, v := range codes {
+		sorted = append(sorted, *v)
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].value < sorted[j].value
+	})
+	return bgpParametersBlocks, sorted
 }
 
 func parseBGPParametersRegistry(w io.Writer, r io.Reader) error {
@@ -578,7 +610,8 @@ func parseBGPParametersRegistry(w io.Writer, r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	for _, block := range b.escape() {
+	blocks, codes := b.escape()
+	for _, block := range blocks {
 		fmt.Fprintf(w, "// %s, Updated: %s\n", block.title, b.Updated)
 		fmt.Fprint(w, "const(\n")
 		for _, cr := range block.records {
@@ -587,5 +620,23 @@ func parseBGPParametersRegistry(w io.Writer, r io.Reader) error {
 		}
 		fmt.Fprint(w, ")\n")
 	}
+	fmt.Fprint(w, "type notifCodeDescAndSubcodes struct {\n")
+	fmt.Fprint(w, "desc string\n")
+	fmt.Fprint(w, "subcodes map[uint8]string\n")
+	fmt.Fprint(w, "}\n")
+	fmt.Fprint(w, "var (\n")
+	fmt.Fprint(w, "notifCodesMap = map[uint8]notifCodeDescAndSubcodes{\n")
+	for _, code := range codes {
+		fmt.Fprintf(w, "%s: {\n", code.name)
+		fmt.Fprintf(w, `desc: "%s",`+"\n", code.originalName)
+		fmt.Fprint(w, "subcodes: map[uint8]string{\n")
+		for _, subcode := range code.subcodes {
+			fmt.Fprintf(w, `%s: "%s",`+"\n", subcode.name, subcode.originalName)
+		}
+		fmt.Fprint(w, "},\n")
+		fmt.Fprint(w, "},\n")
+	}
+	fmt.Fprint(w, "}\n")
+	fmt.Fprint(w, ")\n")
 	return nil
 }
