@@ -6,6 +6,9 @@
 // this program generates BGP-relevant IANA constants by reading IANA
 // registries. Original inspiration for this generation technique stemmed from
 // golang.org/x/net/internal/iana
+//
+// Generating allows us to more easily keep up to date with new RFCs, and
+// removes the human error factor.
 package main
 
 import (
@@ -143,7 +146,7 @@ func (c *capabilityRegistry) escape() []constRecord {
 			case "Multiprotocol Extensions for BGP-4":
 				cr.name = "MP_EXTENSIONS"
 			case "BGP Extended Message":
-				cr.name = "EXT_MESSSAGE"
+				cr.name = "EXTENDED_MESSSAGE"
 			case "BGP Role":
 				cr.name = "ROLE"
 			case "Support for 4-octet AS number capability":
@@ -413,6 +416,7 @@ func escapePathAttributes(records []bgpParametersRecord) []constRecord {
 	sr := strings.NewReplacer(
 		" ", "_",
 		"-", "_",
+		"attribute", "ATTR",
 	)
 	for _, record := range records {
 		if strings.Contains(record.Code, "Reserved") ||
@@ -497,6 +501,7 @@ func escapeNotificationSubcodes(records []bgpParametersRecord) []constRecord {
 		"Attribute", "ATTR",
 		"Parameter", "PARAM",
 		"Administrative", "ADMIN",
+		"Length", "LEN",
 	)
 	for _, record := range records {
 		if strings.Contains(record.Name, "Reserved") ||
@@ -523,6 +528,8 @@ func escapeNotificationSubcodes(records []bgpParametersRecord) []constRecord {
 			cr.name = "RX_UNEXPECTED_MESSAGE_OPENCONFIRM"
 		case "Receive Unexpected Message in Established State":
 			cr.name = "RX_UNEXPECTED_MESSAGE_ESTABLISHED"
+		case "Peer De-configured":
+			cr.name = "PEER_DECONFIGURED"
 		default:
 			s = sr.Replace(s)
 			cr.name = strings.ToUpper(s)

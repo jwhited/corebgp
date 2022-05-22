@@ -214,7 +214,7 @@ func (o *openMessage) getCapabilities() []Capability {
 func (o *openMessage) decode(b []byte) error {
 	if len(b) < 10 {
 		n := newNotification(NOTIF_CODE_MESSAGE_HEADER_ERR,
-			NOTIF_SUBCODE_BAD_MESSAGE_LENGTH, b)
+			NOTIF_SUBCODE_BAD_MESSAGE_LEN, b)
 		return newNotificationError(n, true)
 	}
 	o.version = b[0]

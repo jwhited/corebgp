@@ -463,7 +463,7 @@ func (f *fsm) read() {
 		bodyLen := int(binary.BigEndian.Uint16(header[16:18])) - headerLength
 		if bodyLen < 0 || bodyLen+headerLength > maxMessageLength {
 			n := newNotification(NOTIF_CODE_MESSAGE_HEADER_ERR,
-				NOTIF_SUBCODE_BAD_MESSAGE_LENGTH, nil)
+				NOTIF_SUBCODE_BAD_MESSAGE_LEN, nil)
 			select {
 			case <-f.closeReaderCh:
 				return

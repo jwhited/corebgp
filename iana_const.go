@@ -9,7 +9,7 @@ const (
 	CAP_ROUTE_REFRESH              uint8 = 2  // Route Refresh Capability for BGP-4
 	CAP_OUTBOUND_ROUTE_FILTERING   uint8 = 3  // Outbound Route Filtering Capability
 	CAP_EXTENDED_NEXT_HOP_ENCODING uint8 = 5  // Extended Next Hop Encoding
-	CAP_EXT_MESSSAGE               uint8 = 6  // BGP Extended Message
+	CAP_EXTENDED_MESSSAGE          uint8 = 6  // BGP Extended Message
 	CAP_BGPSEC                     uint8 = 7  // BGPsec Capability
 	CAP_MULTIPLE_LABELS            uint8 = 8  // Multiple Labels Capability
 	CAP_ROLE                       uint8 = 9  // BGP Role
@@ -138,7 +138,7 @@ const (
 	PATH_ATTR_LARGE_COMMUNITY                       uint8 = 32  // LARGE_COMMUNITY
 	PATH_ATTR_BGPSEC_PATH                           uint8 = 33  // BGPsec_Path
 	PATH_ATTR_OTC                                   uint8 = 35  // Only to Customer (OTC)
-	PATH_ATTR_SFP_ATTRIBUTE                         uint8 = 37  // SFP attribute
+	PATH_ATTR_SFP_ATTR                              uint8 = 37  // SFP attribute
 	PATH_ATTR_BFD_DISCRIMINATOR                     uint8 = 38  // BFD Discriminator
 	PATH_ATTR_BGP_PREFIX_SID                        uint8 = 40  // BGP Prefix-SID
 	PATH_ATTR_ATTR_SET                              uint8 = 128 // ATTR_SET
@@ -158,7 +158,7 @@ const (
 // Message Header Error subcodes, Updated: 2022-05-13
 const (
 	NOTIF_SUBCODE_CONN_NOT_SYNCHRONIZED uint8 = 1 // Connection Not Synchronized
-	NOTIF_SUBCODE_BAD_MESSAGE_LENGTH    uint8 = 2 // Bad Message Length
+	NOTIF_SUBCODE_BAD_MESSAGE_LEN       uint8 = 2 // Bad Message Length
 	NOTIF_SUBCODE_BAD_MESSAGE_TYPE      uint8 = 3 // Bad Message Type
 )
 
@@ -179,7 +179,7 @@ const (
 	NOTIF_SUBCODE_UNRECOGNIZED_WELL_KNOWN_ATTR uint8 = 2  // Unrecognized Well-known Attribute
 	NOTIF_SUBCODE_MISSING_WELL_KNOWN_ATTR      uint8 = 3  // Missing Well-known Attribute
 	NOTIF_SUBCODE_ATTR_FLAGS_ERR               uint8 = 4  // Attribute Flags Error
-	NOTIF_SUBCODE_ATTR_LENGTH_ERR              uint8 = 5  // Attribute Length Error
+	NOTIF_SUBCODE_ATTR_LEN_ERR                 uint8 = 5  // Attribute Length Error
 	NOTIF_SUBCODE_INVALID_ORIGIN_ATTR          uint8 = 6  // Invalid ORIGIN Attribute
 	NOTIF_SUBCODE_INVALID_NEXT_HOP_ATTR        uint8 = 8  // Invalid NEXT_HOP Attribute
 	NOTIF_SUBCODE_OPTIONAL_ATTR_ERR            uint8 = 9  // Optional Attribute Error
@@ -198,7 +198,7 @@ const (
 const (
 	NOTIF_SUBCODE_MAX_NUM_OF_PREFIXES_REACHED uint8 = 1 // Maximum Number of Prefixes Reached
 	NOTIF_SUBCODE_ADMIN_SHUTDOWN              uint8 = 2 // Administrative Shutdown
-	NOTIF_SUBCODE_PEER_DE_CONFIGURED          uint8 = 3 // Peer De-configured
+	NOTIF_SUBCODE_PEER_DECONFIGURED           uint8 = 3 // Peer De-configured
 	NOTIF_SUBCODE_ADMIN_RESET                 uint8 = 4 // Administrative Reset
 	NOTIF_SUBCODE_CONN_REJECTED               uint8 = 5 // Connection Rejected
 	NOTIF_SUBCODE_OTHER_CONFIG_CHANGE         uint8 = 6 // Other Configuration Change
@@ -209,5 +209,5 @@ const (
 
 // BGP ROUTE-REFRESH Message Error subcodes, Updated: 2022-05-13
 const (
-	NOTIF_SUBCODE_INVALID_MESSAGE_LENGTH uint8 = 1 // Invalid Message Length
+	NOTIF_SUBCODE_INVALID_MESSAGE_LEN uint8 = 1 // Invalid Message Length
 )
