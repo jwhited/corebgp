@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"syscall"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// nil address
-		seterr = SetTCPMD5Signature(fd, nil, 32,
+		seterr = SetTCPMD5Signature(fd, netip.Addr{}, 32,
 			"password")
 	})
 	if err != nil {
@@ -48,7 +49,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// ipv6 address
-		seterr = SetTCPMD5Signature(fd, net.ParseIP("2001:db8::1"),
+		seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("2001:db8::1"),
 			128, "password")
 	})
 	if err != nil {
@@ -62,7 +63,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// valid
-		seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
+		seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"),
 			32, "password")
 	})
 	if err != nil {
@@ -84,7 +85,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
+				seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"),
 					32, "password")
 			})
 			if err != nil {
@@ -104,7 +105,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 	err = raw.Control(func(fdPtr uintptr) {
 		fd := int(fdPtr)
 		// unset
-		seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
+		seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"),
 			32, "")
 	})
 	if err != nil {
@@ -127,7 +128,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
+				seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"),
 					32, "password")
 			})
 			if err != nil {
@@ -160,7 +161,7 @@ func TestSetTCPMD5Signature(t *testing.T) {
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fdPtr uintptr) {
 				fd := int(fdPtr)
-				seterr = SetTCPMD5Signature(fd, net.ParseIP("127.0.0.1"),
+				seterr = SetTCPMD5Signature(fd, netip.MustParseAddr("127.0.0.1"),
 					32, "password")
 			})
 			if err != nil {

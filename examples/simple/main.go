@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
@@ -31,8 +32,8 @@ func main() {
 		lis net.Listener
 		err error
 	)
-	remote := net.ParseIP(*remoteAddress)
-	local := net.ParseIP(*localAddress)
+	remote := netip.MustParseAddr(*remoteAddress)
+	local := netip.MustParseAddr(*localAddress)
 	if len(*bindAddr) > 0 {
 		lc := &net.ListenConfig{}
 		if len(*md5) > 0 {
@@ -42,7 +43,7 @@ func main() {
 				err := c.Control(func(fdPtr uintptr) {
 					fd := int(fdPtr)
 					prefixLen := uint8(32)
-					if remote.To4() == nil {
+					if !remote.Is4() {
 						prefixLen = 128
 					}
 					seterr = corebgp.SetTCPMD5Signature(fd,
@@ -60,7 +61,7 @@ func main() {
 		}
 	}
 	corebgp.SetLogger(log.Print)
-	srv, err := corebgp.NewServer(net.ParseIP(*routerID))
+	srv, err := corebgp.NewServer(netip.MustParseAddr(*routerID))
 	if err != nil {
 		log.Fatalf("error constructing server: %v", err)
 	}
@@ -73,7 +74,7 @@ func main() {
 				err := c.Control(func(fdPtr uintptr) {
 					fd := int(fdPtr)
 					prefixLen := uint8(32)
-					if remote.To4() == nil {
+					if !remote.Is4() {
 						prefixLen = 128
 					}
 					seterr = corebgp.SetTCPMD5Signature(fd,
@@ -130,7 +131,7 @@ func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID net.IP, capabilities []corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID netip.Addr, capabilities []corebgp.Capability) *corebgp.Notification {
 	log.Println("open message received")
 	return nil
 }
