@@ -2,35 +2,35 @@ package corebgp
 
 import (
 	"github.com/stretchr/testify/assert"
-	"net"
+	"net/netip"
 	"reflect"
 	"testing"
 )
 
 func TestServer(t *testing.T) {
-	_, err := NewServer(nil)
+	_, err := NewServer(netip.Addr{})
 	assert.Error(t, err)
 
-	_, err = NewServer(net.ParseIP("::1"))
+	_, err = NewServer(netip.MustParseAddr("::1"))
 	assert.Error(t, err)
 
-	s, err := NewServer(net.ParseIP("127.0.0.1"))
+	s, err := NewServer(netip.MustParseAddr("127.0.0.1"))
 	assert.NoError(t, err)
 
 	err = s.AddPeer(PeerConfig{}, nil)
 	assert.Error(t, err)
 
 	err = s.AddPeer(PeerConfig{
-		LocalAddress:  net.ParseIP("::1"),
-		RemoteAddress: net.ParseIP("127.0.0.2"),
+		LocalAddress:  netip.MustParseAddr("::1"),
+		RemoteAddress: netip.MustParseAddr("127.0.0.2"),
 		LocalAS:       64512,
 		RemoteAS:      64513,
 	}, nil)
 	assert.Error(t, err)
 
 	pcIPv4 := PeerConfig{
-		LocalAddress:  net.ParseIP("127.0.0.1"),
-		RemoteAddress: net.ParseIP("127.0.0.2"),
+		LocalAddress:  netip.MustParseAddr("127.0.0.1"),
+		RemoteAddress: netip.MustParseAddr("127.0.0.2"),
 		LocalAS:       64512,
 		RemoteAS:      64513,
 	}
@@ -40,8 +40,8 @@ func TestServer(t *testing.T) {
 	assert.ErrorIs(t, err, ErrPeerAlreadyExists)
 
 	pcIPv6 := PeerConfig{
-		LocalAddress:  net.ParseIP("::1"),
-		RemoteAddress: net.ParseIP("::2"),
+		LocalAddress:  netip.MustParseAddr("::1"),
+		RemoteAddress: netip.MustParseAddr("::2"),
 		LocalAS:       64512,
 		RemoteAS:      64513,
 	}

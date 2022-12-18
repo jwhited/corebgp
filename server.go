@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 )
 
@@ -22,15 +23,14 @@ type Server struct {
 }
 
 // NewServer creates a new Server.
-func NewServer(routerID net.IP) (*Server, error) {
-	v4 := routerID.To4()
-	if v4 == nil {
+func NewServer(routerID netip.Addr) (*Server, error) {
+	if !routerID.Is4() {
 		return nil, errors.New("invalid router ID")
 	}
 
 	s := &Server{
 		mu:            sync.Mutex{},
-		id:            binary.BigEndian.Uint32(v4),
+		id:            binary.BigEndian.Uint32(routerID.AsSlice()),
 		peers:         make(map[string]*peer),
 		doneServingCh: make(chan struct{}),
 		closeCh:       make(chan struct{}),
@@ -146,20 +146,20 @@ func (s *Server) Close() {
 
 // PeerConfig is the required configuration for a Peer.
 type PeerConfig struct {
-	LocalAddress  net.IP
-	RemoteAddress net.IP
+	LocalAddress  netip.Addr
+	RemoteAddress netip.Addr
 	LocalAS       uint32
 	RemoteAS      uint32
 }
 
 func (p PeerConfig) validate() error {
-	localIsIPv4 := p.LocalAddress.To4() != nil
-	remoteIsIPv4 := p.RemoteAddress.To4() != nil
+	localIsIPv4 := p.LocalAddress.Is4()
+	remoteIsIPv4 := p.RemoteAddress.Is4()
 	if localIsIPv4 != remoteIsIPv4 {
 		return errors.New("mixed address family peer address pair")
 	}
 	if !localIsIPv4 {
-		if p.LocalAddress.To16() == nil || p.RemoteAddress.To16() == nil {
+		if !p.LocalAddress.Is6() || !p.RemoteAddress.Is6() {
 			return errors.New("invalid peer address pair")
 		}
 	}
@@ -207,7 +207,7 @@ func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 }
 
 // DeletePeer deletes a peer from the Server.
-func (s *Server) DeletePeer(ip net.IP) error {
+func (s *Server) DeletePeer(ip netip.Addr) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, exists := s.peers[ip.String()]
@@ -223,7 +223,7 @@ func (s *Server) DeletePeer(ip net.IP) error {
 
 // GetPeer returns the configuration for the provided peer, or an error if it
 // does not exist.
-func (s *Server) GetPeer(ip net.IP) (PeerConfig, error) {
+func (s *Server) GetPeer(ip netip.Addr) (PeerConfig, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, exists := s.peers[ip.String()]

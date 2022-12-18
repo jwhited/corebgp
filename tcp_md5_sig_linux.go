@@ -3,7 +3,7 @@ package corebgp
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -20,7 +20,7 @@ type tcpMD5Sig struct {
 	key       [80]byte
 }
 
-func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
+func newTCPMD5Sig(fd int, address netip.Addr, prefixLen uint8, key string) (
 	tcpMD5Sig, error) {
 	t := tcpMD5Sig{
 		flags: unix.TCP_MD5SIG_FLAG_PREFIX,
@@ -35,15 +35,15 @@ func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
 	}
 	switch sa.(type) {
 	case *unix.SockaddrInet4:
-		if address.To4() == nil {
+		if !address.Is4() {
 			// we can only set a key for an ipv4 addr on an af_inet socket
 			return t, errors.New("invalid address")
 		}
 		t.ssFamily = unix.AF_INET
-		copy(t.ss[2:], address.To4())
+		copy(t.ss[2:], address.AsSlice())
 	case *unix.SockaddrInet6:
 		t.ssFamily = unix.AF_INET6
-		if address.To4() == nil && address.To16() == nil {
+		if !address.IsValid() {
 			// https://github.com/torvalds/linux/blob/v5.11-rc7/net/ipv6/tcp_ipv6.c#L636-L640
 			//
 			// address may be ipv4 or ipv6 for an AF_INET6 wildcard socket.
@@ -51,7 +51,8 @@ func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
 		}
 		// ensure address is represented as 16 bytes as ipv4-mapped ipv6 is
 		// valid here
-		copy(t.ss[6:], net.ParseIP(address.String()).To16())
+		as16 := address.As16()
+		copy(t.ss[6:], as16[:])
 	default:
 		return t, errors.New("unknown socket type")
 	}
@@ -67,7 +68,7 @@ func newTCPMD5Sig(fd int, address net.IP, prefixLen uint8, key string) (
 // < 4.13.
 //
 // https://tools.ietf.org/html/rfc2385
-func SetTCPMD5Signature(fd int, address net.IP, prefixLen uint8,
+func SetTCPMD5Signature(fd int, address netip.Addr, prefixLen uint8,
 	key string) error {
 	t, err := newTCPMD5Sig(fd, address, prefixLen, key)
 	if err != nil {

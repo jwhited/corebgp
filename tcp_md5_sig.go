@@ -5,7 +5,7 @@ package corebgp
 
 import (
 	"errors"
-	"net"
+	"net/netip"
 )
 
 // SetTCPMD5Signature sets a tcp md5 signature on a socket for the provided
@@ -14,7 +14,7 @@ import (
 // < 4.13.
 //
 // https://tools.ietf.org/html/rfc2385
-func SetTCPMD5Signature(fd int, address net.IP, prefixLen uint8,
+func SetTCPMD5Signature(fd int, address netip.Addr, prefixLen uint8,
 	key string) error {
 	return errors.New("unsupported")
 }

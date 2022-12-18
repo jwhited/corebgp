@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
-	"net"
+	"net/netip"
 	"time"
 )
 
@@ -164,9 +164,10 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 			NOTIF_SUBCODE_UNACCEPTABLE_HOLD_TIME, nil)
 		return newNotificationError(n, true)
 	}
-	id := net.IP(make([]byte, 4))
-	binary.BigEndian.PutUint32(id, o.bgpID)
-	if !id.IsGlobalUnicast() {
+	var id [4]byte
+	binary.BigEndian.PutUint32(id[:], o.bgpID)
+	addr := netip.AddrFrom4(id)
+	if !addr.IsGlobalUnicast() {
 		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
 			NOTIF_SUBCODE_BAD_BGP_ID, nil)
 		return newNotificationError(n, true)
