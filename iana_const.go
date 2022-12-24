@@ -3,7 +3,7 @@
 
 package corebgp
 
-// Capability Codes, Updated: 2022-05-10
+// Capability Codes, Updated: 2022-11-02
 const (
 	CAP_MP_EXTENSIONS              uint8 = 1  // Multiprotocol Extensions for BGP-4
 	CAP_ROUTE_REFRESH              uint8 = 2  // Route Refresh Capability for BGP-4
@@ -22,6 +22,7 @@ const (
 	CAP_LLGR                       uint8 = 71 // Long-Lived Graceful Restart (LLGR) Capability
 	CAP_ROUTING_POLICY_DIST        uint8 = 72 // Routing Policy Distribution
 	CAP_FQDN                       uint8 = 73 // FQDN Capability
+	CAP_BFD                        uint8 = 74 // BFD Capability
 )
 
 // Address Family Numbers, Updated: 2021-10-19
@@ -75,7 +76,7 @@ const (
 	AFI_MPLS_NAMESPACES                uint16 = 16399 // MPLS Namespaces
 )
 
-// Subsequent Address Family Identifiers (SAFI) Parameters, Updated: 2022-04-13
+// Subsequent Address Family Identifiers (SAFI) Parameters, Updated: 2022-08-19
 const (
 	SAFI_UNICAST                               uint8 = 1   // Network Layer Reachability Information used for unicast forwarding
 	SAFI_MULTICAST                             uint8 = 2   // Network Layer Reachability Information used for multicast forwarding
@@ -103,6 +104,7 @@ const (
 	SAFI_BGP_LS_SPF                            uint8 = 80  // BGP-LS-SPF
 	SAFI_BGP_CAR                               uint8 = 83  // BGP CAR
 	SAFI_BGP_VPN_CAR                           uint8 = 84  // BGP VPN CAR
+	SAFI_BGP_MUP                               uint8 = 85  // BGP-MUP SAFI
 	SAFI_MPLS_LABELED_VPN_ADDR                 uint8 = 128 // MPLS-labeled VPN address
 	SAFI_MULTICAST_BGP_MPLS_IP_VPNS            uint8 = 129 // Multicast for BGP/MPLS IP Virtual Private Networks (VPNs)
 	SAFI_ROUTE_TARGET_CONSTRAINS               uint8 = 132 // Route Target constrains
@@ -111,7 +113,7 @@ const (
 	SAFI_VPN_AUTO_DISCOVERY                    uint8 = 140 // VPN auto-discovery
 )
 
-// BGP Path Attributes, Updated: 2022-05-13
+// BGP Path Attributes, Updated: 2022-12-20
 const (
 	PATH_ATTR_ORIGIN                                uint8 = 1   // ORIGIN
 	PATH_ATTR_AS_PATH                               uint8 = 2   // AS_PATH
@@ -144,7 +146,7 @@ const (
 	PATH_ATTR_ATTR_SET                              uint8 = 128 // ATTR_SET
 )
 
-// BGP Error (Notification) Codes, Updated: 2022-05-13
+// BGP Error (Notification) Codes, Updated: 2022-12-20
 const (
 	NOTIF_CODE_MESSAGE_HEADER_ERR        uint8 = 1 // Message Header Error
 	NOTIF_CODE_OPEN_MESSAGE_ERR          uint8 = 2 // OPEN Message Error
@@ -155,14 +157,14 @@ const (
 	NOTIF_CODE_ROUTE_REFRESH_MESSAGE_ERR uint8 = 7 // ROUTE-REFRESH Message Error
 )
 
-// Message Header Error subcodes, Updated: 2022-05-13
+// Message Header Error subcodes, Updated: 2022-12-20
 const (
 	NOTIF_SUBCODE_CONN_NOT_SYNCHRONIZED uint8 = 1 // Connection Not Synchronized
 	NOTIF_SUBCODE_BAD_MESSAGE_LEN       uint8 = 2 // Bad Message Length
 	NOTIF_SUBCODE_BAD_MESSAGE_TYPE      uint8 = 3 // Bad Message Type
 )
 
-// OPEN Message Error subcodes, Updated: 2022-05-13
+// OPEN Message Error subcodes, Updated: 2022-12-20
 const (
 	NOTIF_SUBCODE_UNSUPPORTED_VERSION_NUM    uint8 = 1  // Unsupported Version Number
 	NOTIF_SUBCODE_BAD_PEER_AS                uint8 = 2  // Bad Peer AS
@@ -173,7 +175,7 @@ const (
 	NOTIF_SUBCODE_ROLE_MISMATCH              uint8 = 11 // Role Mismatch
 )
 
-// UPDATE Message Error subcodes, Updated: 2022-05-13
+// UPDATE Message Error subcodes, Updated: 2022-12-20
 const (
 	NOTIF_SUBCODE_MALFORMED_ATTR_LIST          uint8 = 1  // Malformed Attribute List
 	NOTIF_SUBCODE_UNRECOGNIZED_WELL_KNOWN_ATTR uint8 = 2  // Unrecognized Well-known Attribute
@@ -187,14 +189,14 @@ const (
 	NOTIF_SUBCODE_MALFORMED_AS_PATH            uint8 = 11 // Malformed AS_PATH
 )
 
-// BGP Finite State Machine Error Subcodes, Updated: 2022-05-13
+// BGP Finite State Machine Error Subcodes, Updated: 2022-12-20
 const (
 	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENSENT    uint8 = 1 // Receive Unexpected Message in OpenSent State
 	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENCONFIRM uint8 = 2 // Receive Unexpected Message in OpenConfirm State
 	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_ESTABLISHED uint8 = 3 // Receive Unexpected Message in Established State
 )
 
-// BGP Cease NOTIFICATION message subcodes, Updated: 2022-05-13
+// BGP Cease NOTIFICATION message subcodes, Updated: 2022-12-20
 const (
 	NOTIF_SUBCODE_MAX_NUM_OF_PREFIXES_REACHED uint8 = 1 // Maximum Number of Prefixes Reached
 	NOTIF_SUBCODE_ADMIN_SHUTDOWN              uint8 = 2 // Administrative Shutdown
@@ -207,7 +209,7 @@ const (
 	NOTIF_SUBCODE_HARD_RESET                  uint8 = 9 // Hard Reset
 )
 
-// BGP ROUTE-REFRESH Message Error subcodes, Updated: 2022-05-13
+// BGP ROUTE-REFRESH Message Error subcodes, Updated: 2022-12-20
 const (
 	NOTIF_SUBCODE_INVALID_MESSAGE_LEN uint8 = 1 // Invalid Message Length
 )
