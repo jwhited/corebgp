@@ -44,6 +44,30 @@ var (
 	ErrPeerAlreadyExists = errors.New("peer already exists")
 )
 
+func (s *Server) handleInboundConn(conn net.Conn) {
+	h, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		conn.Close()
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, exists := s.peers[h]
+	if !exists {
+		conn.Close()
+		return
+	}
+	if p.config.LocalAddress.IsValid() {
+		h, _, err = net.SplitHostPort(conn.LocalAddr().String())
+		laddr, _ := netip.ParseAddr(h)
+		if err != nil || p.config.LocalAddress != laddr {
+			conn.Close()
+			return
+		}
+	}
+	p.incomingConnection(conn)
+}
+
 // Serve starts all peers' FSMs, starts handling incoming connections if a
 // non-nil listener is provided, and then blocks. Serve returns ErrServerClosed
 // upon Close() or a listener error if one occurs.
@@ -94,20 +118,7 @@ func (s *Server) Serve(listeners []net.Listener) error {
 					}
 					return
 				}
-				h, _, err := net.SplitHostPort(conn.RemoteAddr().String())
-				if err != nil {
-					conn.Close()
-					continue
-				}
-				s.mu.Lock()
-				p, exists := s.peers[h]
-				if !exists {
-					conn.Close()
-					s.mu.Unlock()
-					continue
-				}
-				p.incomingConnection(conn)
-				s.mu.Unlock()
+				s.handleInboundConn(conn)
 			}
 		}(lis)
 	}
@@ -144,15 +155,31 @@ func (s *Server) Close() {
 	<-s.doneServingCh
 }
 
-// PeerConfig is the required configuration for a Peer.
+// PeerConfig is the configuration for a Peer.
 type PeerConfig struct {
-	LocalAddress  netip.Addr
+	// LocalAddress specifies the source address to use when dialing outbound,
+	// and to verify as a destination for inbound connections. A zero value
+	// behaves loosely, accepting inbound connections regardless of the
+	// destination address, and falling back on the OS for outbound source
+	// address selection.
+	LocalAddress netip.Addr
+
+	// RemoteAddress is the remote address of the peer.
 	RemoteAddress netip.Addr
-	LocalAS       uint32
-	RemoteAS      uint32
+
+	// LocalAS is the local autonomous system number to populate in outbound
+	// OPEN messages.
+	LocalAS uint32
+
+	// RemoteAS is the autonomous system number to expect in OPEN messages
+	// from this peer.
+	RemoteAS uint32
 }
 
 func (p PeerConfig) validate() error {
+	if !p.LocalAddress.IsValid() && p.RemoteAddress.IsValid() {
+		return nil
+	}
 	localIsIPv4 := p.LocalAddress.Is4()
 	remoteIsIPv4 := p.RemoteAddress.Is4()
 	if localIsIPv4 != remoteIsIPv4 {
