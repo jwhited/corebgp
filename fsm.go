@@ -218,9 +218,9 @@ func (f *fsm) dialPeer() {
 			laddr net.Addr
 			err   error
 		)
-		if f.peer.config.LocalAddress.IsValid() {
+		if f.peer.options.localAddress.IsValid() {
 			laddr, err = net.ResolveTCPAddr("tcp",
-				net.JoinHostPort(f.peer.config.LocalAddress.String(), "0"))
+				net.JoinHostPort(f.peer.options.localAddress.String(), "0"))
 			if err != nil {
 				dialResultCh <- &dialResult{
 					conn: nil,

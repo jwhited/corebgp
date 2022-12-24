@@ -21,33 +21,30 @@ func TestServer(t *testing.T) {
 	assert.Error(t, err)
 
 	err = s.AddPeer(PeerConfig{
-		LocalAddress:  netip.MustParseAddr("::1"),
 		RemoteAddress: netip.MustParseAddr("127.0.0.2"),
 		LocalAS:       64512,
 		RemoteAS:      64513,
-	}, nil)
+	}, nil, WithLocalAddress(netip.MustParseAddr("::1")))
 	assert.Error(t, err)
 
 	pcIPv4 := PeerConfig{
-		LocalAddress:  netip.MustParseAddr("127.0.0.1"),
 		RemoteAddress: netip.MustParseAddr("127.0.0.2"),
 		LocalAS:       64512,
 		RemoteAS:      64513,
 	}
-	err = s.AddPeer(pcIPv4, nil)
+	err = s.AddPeer(pcIPv4, nil, WithLocalAddress(netip.MustParseAddr("127.0.0.1")))
 	assert.NoError(t, err)
-	err = s.AddPeer(pcIPv4, nil)
+	err = s.AddPeer(pcIPv4, nil, WithLocalAddress(netip.MustParseAddr("127.0.0.1")))
 	assert.ErrorIs(t, err, ErrPeerAlreadyExists)
 
 	pcIPv6 := PeerConfig{
-		LocalAddress:  netip.MustParseAddr("::1"),
 		RemoteAddress: netip.MustParseAddr("::2"),
 		LocalAS:       64512,
 		RemoteAS:      64513,
 	}
-	err = s.AddPeer(pcIPv6, nil)
+	err = s.AddPeer(pcIPv6, nil, WithLocalAddress(netip.MustParseAddr("::1")))
 	assert.NoError(t, err)
-	err = s.AddPeer(pcIPv6, nil)
+	err = s.AddPeer(pcIPv6, nil, WithLocalAddress(netip.MustParseAddr("::1")))
 	assert.ErrorIs(t, err, ErrPeerAlreadyExists)
 
 	pcs := s.ListPeers()

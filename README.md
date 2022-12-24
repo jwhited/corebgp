@@ -85,11 +85,10 @@ if err != nil {
 }
 p := &plugin{}
 err = srv.AddPeer(corebgp.PeerConfig{
-    LocalAddress:  routerID,
     RemoteAddress: netip.MustParseAddr("198.51.100.10"),
     LocalAS:       65001,
     RemoteAS:      65010,
-}, p)
+}, p, corebgp.WithLocalAddress(routerID))
 if err != nil {
     log.Fatalf("error adding peer: %v", err)
 }

@@ -57,10 +57,10 @@ func (s *Server) handleInboundConn(conn net.Conn) {
 		conn.Close()
 		return
 	}
-	if p.config.LocalAddress.IsValid() {
+	if p.options.localAddress.IsValid() {
 		h, _, err = net.SplitHostPort(conn.LocalAddr().String())
 		laddr, _ := netip.ParseAddr(h)
-		if err != nil || p.config.LocalAddress != laddr {
+		if err != nil || p.options.localAddress != laddr {
 			conn.Close()
 			return
 		}
@@ -155,15 +155,8 @@ func (s *Server) Close() {
 	<-s.doneServingCh
 }
 
-// PeerConfig is the configuration for a Peer.
+// PeerConfig is the required configuration for a Peer.
 type PeerConfig struct {
-	// LocalAddress specifies the source address to use when dialing outbound,
-	// and to verify as a destination for inbound connections. A zero value
-	// behaves loosely, accepting inbound connections regardless of the
-	// destination address, and falling back on the OS for outbound source
-	// address selection.
-	LocalAddress netip.Addr
-
 	// RemoteAddress is the remote address of the peer.
 	RemoteAddress netip.Addr
 
@@ -176,17 +169,17 @@ type PeerConfig struct {
 	RemoteAS uint32
 }
 
-func (p PeerConfig) validate() error {
-	if !p.LocalAddress.IsValid() && p.RemoteAddress.IsValid() {
+func (p PeerConfig) validate(opts peerOptions) error {
+	if !opts.localAddress.IsValid() && p.RemoteAddress.IsValid() {
 		return nil
 	}
-	localIsIPv4 := p.LocalAddress.Is4()
+	localIsIPv4 := opts.localAddress.Is4()
 	remoteIsIPv4 := p.RemoteAddress.Is4()
 	if localIsIPv4 != remoteIsIPv4 {
 		return errors.New("mixed address family peer address pair")
 	}
 	if !localIsIPv4 {
-		if !p.LocalAddress.Is6() || !p.RemoteAddress.Is6() {
+		if !opts.localAddress.Is6() || !p.RemoteAddress.Is6() {
 			return errors.New("invalid peer address pair")
 		}
 	}
@@ -207,7 +200,15 @@ func (p PeerConfig) validate() error {
 // PeerOptions.
 func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	opts ...PeerOption) error {
-	err := config.validate()
+	o := defaultPeerOptions()
+	for _, opt := range opts {
+		opt.apply(&o)
+	}
+	err := o.validate()
+	if err != nil {
+		return fmt.Errorf("invalid peer options: %v", err)
+	}
+	err = config.validate(o)
 	if err != nil {
 		return fmt.Errorf("peer config invalid: %v", err)
 	}
@@ -216,14 +217,6 @@ func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	_, exists := s.peers[config.RemoteAddress.String()]
 	if exists {
 		return ErrPeerAlreadyExists
-	}
-	o := defaultPeerOptions()
-	for _, opt := range opts {
-		opt.apply(&o)
-	}
-	err = o.validate()
-	if err != nil {
-		return fmt.Errorf("invalid peer options: %v", err)
 	}
 	p := newPeer(config, s.id, plugin, o)
 	if s.serving {

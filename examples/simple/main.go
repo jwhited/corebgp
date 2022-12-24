@@ -89,8 +89,8 @@ func main() {
 	if *passive {
 		peerOpts = append(peerOpts, corebgp.WithPassive())
 	}
+	peerOpts = append(peerOpts, corebgp.WithLocalAddress(local))
 	err = srv.AddPeer(corebgp.PeerConfig{
-		LocalAddress:  local,
 		RemoteAddress: remote,
 		LocalAS:       uint32(*localAS),
 		RemoteAS:      uint32(*remoteAS),
