@@ -29,7 +29,7 @@ type Plugin interface {
 	// Per RFC5492 a BGP speaker should only send a Notification if a required
 	// capability is missing; unknown or unsupported capabilities should be
 	// ignored.
-	OnOpenMessage(peer PeerConfig, routerID net.IP, capabilities []Capability) *Notification
+	OnOpenMessage(peer PeerConfig, routerID netip.Addr, capabilities []Capability) *Notification
 
 	// OnEstablished is fired when a peer's FSM transitions to the Established
 	// state. The returned UpdateMessageHandler will be fired when an Update
@@ -55,7 +55,7 @@ func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
 	return caps
 }
 
-func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID net.IP, capabilities []corebgp.Capability) *corebgp.Notification {
+func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID netip.Addr, capabilities []corebgp.Capability) *corebgp.Notification {
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (p *plugin) handleUpdate(peer corebgp.PeerConfig, u []byte) *corebgp.Notifi
 
 Plugins are attached to peers when they are added to the Server, which manages their lifetime:
 ``` go
-routerID := net.ParseIP("192.0.2.1")
+routerID := netip.MustParseAddr("192.0.2.1")
 srv, err := corebgp.NewServer(routerID)
 if err != nil {
     log.Fatalf("error constructing server: %v", err)
@@ -86,7 +86,7 @@ if err != nil {
 p := &plugin{}
 err = srv.AddPeer(corebgp.PeerConfig{
     LocalAddress:  routerID,
-    RemoteAddress: net.ParseIP("198.51.100.10"),
+    RemoteAddress: netip.MustParseAddr("198.51.100.10"),
     LocalAS:       65001,
     RemoteAS:      65010,
 }, p)
