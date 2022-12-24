@@ -266,13 +266,12 @@ protocol bgp corebgp {
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  netip.MustParseAddr(myAddress),
 		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
 
-	err = server.AddPeer(pc, p)
+	err = server.AddPeer(pc, p, corebgp.WithLocalAddress(netip.MustParseAddr(myAddress)))
 	if err != nil {
 		t.Fatalf("error adding peer: %v", err)
 	}
@@ -448,13 +447,12 @@ protocol bgp corebgp {
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  netip.MustParseAddr(myAddress),
 		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
 
-	err = server.AddPeer(pc, p)
+	err = server.AddPeer(pc, p, corebgp.WithLocalAddress(netip.MustParseAddr(myAddress)))
 	if err != nil {
 		t.Fatalf("error adding peer: %v", err)
 	}
@@ -538,13 +536,12 @@ protocol bgp corebgp {
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  netip.MustParseAddr(myAddress),
 		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
 
-	err = server.AddPeer(pc, p)
+	err = server.AddPeer(pc, p, corebgp.WithLocalAddress(netip.MustParseAddr(myAddress)))
 	if err != nil {
 		t.Fatalf("error adding peer: %v", err)
 	}
@@ -620,13 +617,12 @@ protocol bgp corebgp {
 	}
 
 	pc := corebgp.PeerConfig{
-		LocalAddress:  netip.MustParseAddr(myAddress),
 		RemoteAddress: netip.MustParseAddr(birdAddress),
 		RemoteAS:      birdAS,
 		LocalAS:       myAS,
 	}
 
-	err = server.AddPeer(pc, p,
+	err = server.AddPeer(pc, p, corebgp.WithLocalAddress(netip.MustParseAddr(myAddress)),
 		corebgp.WithDialerControl(func(network, address string, c syscall.RawConn) error {
 			var seterr error
 			err := c.Control(func(fdPtr uintptr) {

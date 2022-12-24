@@ -2,6 +2,7 @@ package corebgp
 
 import (
 	"errors"
+	"net/netip"
 	"syscall"
 	"time"
 )
@@ -13,6 +14,7 @@ type peerOptions struct {
 	port             int
 	passive          bool
 	dialerControlFn  func(network, address string, c syscall.RawConn) error
+	localAddress     netip.Addr
 }
 
 func (p peerOptions) validate() error {
@@ -52,6 +54,7 @@ func defaultPeerOptions() peerOptions {
 		connectRetryTime: DefaultConnectRetryTime,
 		port:             DefaultPort,
 		passive:          false,
+		localAddress:     netip.Addr{},
 	}
 }
 
@@ -108,5 +111,16 @@ func WithDialerControl(fn func(network, address string,
 	c syscall.RawConn) error) PeerOption {
 	return newFuncPeerOption(func(o *peerOptions) {
 		o.dialerControlFn = fn
+	})
+}
+
+// WithLocalAddress returns a PeerOption that specifies the source address to
+// use when dialing outbound, and to verify as a destination for inbound
+// connections. Without this PeerOption corebgp behaves loosely, accepting
+// inbound connections regardless of the destination address, and falling back
+// on the OS for outbound source address selection.
+func WithLocalAddress(localAddress netip.Addr) PeerOption {
+	return newFuncPeerOption(func(o *peerOptions) {
+		o.localAddress = localAddress
 	})
 }
