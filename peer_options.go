@@ -18,8 +18,8 @@ type peerOptions struct {
 }
 
 func (p peerOptions) validate() error {
-	if p.holdTime < time.Second*3 {
-		return errors.New("hold time must be >= 3 seconds")
+	if p.holdTime < time.Second*3 && p.holdTime != 0 {
+		return errors.New("hold time must be 0 or >= 3 seconds")
 	}
 	if p.port < 1 || p.port > 65535 {
 		return errors.New("port must be between 1 and 65535")
@@ -122,5 +122,13 @@ func WithDialerControl(fn func(network, address string,
 func WithLocalAddress(localAddress netip.Addr) PeerOption {
 	return newFuncPeerOption(func(o *peerOptions) {
 		o.localAddress = localAddress
+	})
+}
+
+// WithHoldTime returns a PeerOption that sets the hold time (in seconds) to be
+// advertised to the peer via OPEN message. Hold time MUST be 0 or >= 3 seconds.
+func WithHoldTime(seconds uint16) PeerOption {
+	return newFuncPeerOption(func(o *peerOptions) {
+		o.holdTime = time.Duration(seconds) * time.Second
 	})
 }
