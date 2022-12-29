@@ -32,8 +32,8 @@ type PeerOption interface {
 }
 
 const (
-	// DefaultHoldTime is the default hold down time.
-	DefaultHoldTime = time.Second * 90
+	// DefaultHoldTimeSeconds is the default hold down time in seconds.
+	DefaultHoldTimeSeconds uint16 = 90
 	// DefaultIdleHoldTime is the default idle state hold time for a peer.
 	DefaultIdleHoldTime = time.Second * 5
 	// DefaultConnectRetryTime is the default maximum time spent waiting for an
@@ -49,7 +49,7 @@ const (
 
 func defaultPeerOptions() peerOptions {
 	return peerOptions{
-		holdTime:         DefaultHoldTime,
+		holdTime:         time.Second * time.Duration(DefaultHoldTimeSeconds),
 		idleHoldTime:     DefaultIdleHoldTime,
 		connectRetryTime: DefaultConnectRetryTime,
 		port:             DefaultPort,
