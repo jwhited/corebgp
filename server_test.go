@@ -1,10 +1,11 @@
 package corebgp
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net/netip"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestServer(t *testing.T) {

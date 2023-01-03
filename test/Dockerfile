@@ -1,5 +1,5 @@
 FROM golang:1.20
-ARG BIRD_VERSION=v2.0.11
+ARG BIRD_VERSION=v2.0.12
 
 # utils & BIRD deps
 RUN apt-get update && \

@@ -3,6 +3,7 @@ package corebgp
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"net/netip"
 	"time"
@@ -128,6 +129,24 @@ func (n *Notification) encode() ([]byte, error) {
 		b = append(b, n.Data...)
 	}
 	return prependHeader(b, notificationMessageType), nil
+}
+
+func (n *Notification) Error() string {
+	var codeDesc, subcodeDesc string
+	d, ok := notifCodesMap[n.Code]
+	if ok {
+		codeDesc = d.desc
+		s, ok := d.subcodes[n.Subcode]
+		if ok {
+			subcodeDesc = s
+		}
+	}
+	return fmt.Sprintf("notification code:%d (%s) subcode:%d (%s)",
+		n.Code, codeDesc, n.Subcode, subcodeDesc)
+}
+
+func (n *Notification) AsSessionReset() *Notification {
+	return n
 }
 
 type openMessage struct {

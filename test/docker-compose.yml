@@ -26,6 +26,7 @@ services:
 
 networks:
   bgp:
+    enable_ipv6: true
     driver: bridge
     driver_opts:
       com.docker.network.enable_ipv6: "true"
