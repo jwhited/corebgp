@@ -7,11 +7,19 @@ type Plugin interface {
 	// GetCapabilities is fired when a peer's FSM is in the Connect state prior
 	// to sending an Open message. The returned capabilities are included in the
 	// Open message sent to the peer.
+	//
+	// The four-octet AS number space capability will be implicitly handled,
+	// Plugin implementations are not required to return it.
 	GetCapabilities(peer PeerConfig) []Capability
 
 	// OnOpenMessage is fired when an Open message is received from a peer
 	// during the OpenSent state. Returning a non-nil Notification will cause it
 	// to be sent to the peer and the FSM will transition to the Idle state.
+	//
+	// Remote peers MUST include the four-octet AS number space capability in
+	// their open message. corebgp will return a Notification message if a
+	// remote peer does not support said capability, and will not invoke
+	// OnOpenMessage.
 	//
 	// Per RFC5492 a BGP speaker should only send a Notification if a required
 	// capability is missing; unknown or unsupported capabilities should be
