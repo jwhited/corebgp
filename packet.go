@@ -197,6 +197,25 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
 			NOTIF_SUBCODE_BAD_PEER_AS, nil)
 		return newNotificationError(n, true)
+	} else if !fourOctetASFound {
+		// corebgp requires four-octet ASN space support
+		//
+		// https://www.rfc-editor.org/rfc/rfc5492.html#section-5
+		// This document defines a new Error Subcode, Unsupported Capability.
+		// The value of this Subcode is 7.  The Data field in the NOTIFICATION
+		// message MUST list the set of capabilities that causes the speaker to
+		// send the message.  Each such capability is encoded in the same way as
+		// it would be encoded in the OPEN message.
+		//
+		// As explained in the "Overview of Operations" section, the Unsupported
+		// Capability NOTIFICATION is a way for a BGP speaker to complain that
+		// its peer does not support a required capability without which the
+		// peering cannot proceed.  It MUST NOT be used when a BGP speaker
+		// receives a capability that it does not understand; such capabilities
+		// MUST be ignored.
+		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
+			NOTIF_SUBCODE_UNSUPPORTED_CAPABILITY, newFourOctetASCap(remoteAS).encode())
+		return newNotificationError(n, true)
 	}
 	return nil
 }
@@ -297,15 +316,19 @@ const (
 	asTrans uint16 = 23456
 )
 
-func newOpenMessage(asn uint32, holdTime time.Duration, bgpID uint32,
-	caps []Capability) (*openMessage, error) {
-	allCaps := make([]Capability, 0)
-	fourOctetAS := Capability{
+func newFourOctetASCap(asn uint32) Capability {
+	c := Capability{
 		Code:  CAP_FOUR_OCTET_AS,
 		Value: make([]byte, 4),
 	}
-	binary.BigEndian.PutUint32(fourOctetAS.Value, asn)
-	allCaps = append(allCaps, fourOctetAS)
+	binary.BigEndian.PutUint32(c.Value, asn)
+	return c
+}
+
+func newOpenMessage(asn uint32, holdTime time.Duration, bgpID uint32,
+	caps []Capability) (*openMessage, error) {
+	allCaps := make([]Capability, 0, len(caps)+1)
+	allCaps = append(allCaps, newFourOctetASCap(asn))
 	for _, c := range caps {
 		// ignore four octet as capability as we include this implicitly above
 		if c.Code != CAP_FOUR_OCTET_AS {
@@ -382,9 +405,7 @@ func (c *capabilityOptionalParam) encode() ([]byte, error) {
 	caps := make([]byte, 0)
 	if len(c.capabilities) > 0 {
 		for _, capability := range c.capabilities {
-			caps = append(caps, capability.Code)
-			caps = append(caps, uint8(len(capability.Value)))
-			caps = append(caps, capability.Value...)
+			caps = append(caps, capability.encode()...)
 		}
 	} else {
 		return nil, errors.New("empty capabilities in capability optional param")
@@ -399,6 +420,14 @@ func (c *capabilityOptionalParam) encode() ([]byte, error) {
 type Capability struct {
 	Code  uint8
 	Value []byte
+}
+
+func (c Capability) encode() []byte {
+	b := make([]byte, 2+len(c.Value))
+	b[0] = c.Code
+	b[1] = uint8(len(c.Value))
+	copy(b[2:], c.Value)
+	return b
 }
 
 type updateMessage []byte
