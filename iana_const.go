@@ -3,7 +3,7 @@
 
 package corebgp
 
-// Capability Codes, Updated: 2022-11-02
+// Capability Codes, Updated: 2023-01-23
 const (
 	CAP_MP_EXTENSIONS              uint8 = 1  // Multiprotocol Extensions for BGP-4
 	CAP_ROUTE_REFRESH              uint8 = 2  // Route Refresh Capability for BGP-4
@@ -23,6 +23,7 @@ const (
 	CAP_ROUTING_POLICY_DIST        uint8 = 72 // Routing Policy Distribution
 	CAP_FQDN                       uint8 = 73 // FQDN Capability
 	CAP_BFD                        uint8 = 74 // BFD Capability
+	CAP_SOFTWARE_VERSION           uint8 = 75 // Software Version Capability
 )
 
 // Address Family Numbers, Updated: 2021-10-19
@@ -113,7 +114,7 @@ const (
 	SAFI_VPN_AUTO_DISCOVERY                    uint8 = 140 // VPN auto-discovery
 )
 
-// BGP Path Attributes, Updated: 2022-12-20
+// BGP Path Attributes, Updated: 2023-01-18
 const (
 	PATH_ATTR_ORIGIN                                uint8 = 1   // ORIGIN
 	PATH_ATTR_AS_PATH                               uint8 = 2   // AS_PATH
@@ -146,7 +147,7 @@ const (
 	PATH_ATTR_ATTR_SET                              uint8 = 128 // ATTR_SET
 )
 
-// BGP Error (Notification) Codes, Updated: 2022-12-20
+// BGP Error (Notification) Codes, Updated: 2023-01-18
 const (
 	NOTIF_CODE_MESSAGE_HEADER_ERR        uint8 = 1 // Message Header Error
 	NOTIF_CODE_OPEN_MESSAGE_ERR          uint8 = 2 // OPEN Message Error
@@ -157,14 +158,14 @@ const (
 	NOTIF_CODE_ROUTE_REFRESH_MESSAGE_ERR uint8 = 7 // ROUTE-REFRESH Message Error
 )
 
-// Message Header Error subcodes, Updated: 2022-12-20
+// Message Header Error subcodes, Updated: 2023-01-18
 const (
 	NOTIF_SUBCODE_CONN_NOT_SYNCHRONIZED uint8 = 1 // Connection Not Synchronized
 	NOTIF_SUBCODE_BAD_MESSAGE_LEN       uint8 = 2 // Bad Message Length
 	NOTIF_SUBCODE_BAD_MESSAGE_TYPE      uint8 = 3 // Bad Message Type
 )
 
-// OPEN Message Error subcodes, Updated: 2022-12-20
+// OPEN Message Error subcodes, Updated: 2023-01-18
 const (
 	NOTIF_SUBCODE_UNSUPPORTED_VERSION_NUM    uint8 = 1  // Unsupported Version Number
 	NOTIF_SUBCODE_BAD_PEER_AS                uint8 = 2  // Bad Peer AS
@@ -175,7 +176,7 @@ const (
 	NOTIF_SUBCODE_ROLE_MISMATCH              uint8 = 11 // Role Mismatch
 )
 
-// UPDATE Message Error subcodes, Updated: 2022-12-20
+// UPDATE Message Error subcodes, Updated: 2023-01-18
 const (
 	NOTIF_SUBCODE_MALFORMED_ATTR_LIST          uint8 = 1  // Malformed Attribute List
 	NOTIF_SUBCODE_UNRECOGNIZED_WELL_KNOWN_ATTR uint8 = 2  // Unrecognized Well-known Attribute
@@ -189,27 +190,28 @@ const (
 	NOTIF_SUBCODE_MALFORMED_AS_PATH            uint8 = 11 // Malformed AS_PATH
 )
 
-// BGP Finite State Machine Error Subcodes, Updated: 2022-12-20
+// BGP Finite State Machine Error Subcodes, Updated: 2023-01-18
 const (
 	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENSENT    uint8 = 1 // Receive Unexpected Message in OpenSent State
 	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_OPENCONFIRM uint8 = 2 // Receive Unexpected Message in OpenConfirm State
 	NOTIF_SUBCODE_RX_UNEXPECTED_MESSAGE_ESTABLISHED uint8 = 3 // Receive Unexpected Message in Established State
 )
 
-// BGP Cease NOTIFICATION message subcodes, Updated: 2022-12-20
+// BGP Cease NOTIFICATION message subcodes, Updated: 2023-01-18
 const (
-	NOTIF_SUBCODE_MAX_NUM_OF_PREFIXES_REACHED uint8 = 1 // Maximum Number of Prefixes Reached
-	NOTIF_SUBCODE_ADMIN_SHUTDOWN              uint8 = 2 // Administrative Shutdown
-	NOTIF_SUBCODE_PEER_DECONFIGURED           uint8 = 3 // Peer De-configured
-	NOTIF_SUBCODE_ADMIN_RESET                 uint8 = 4 // Administrative Reset
-	NOTIF_SUBCODE_CONN_REJECTED               uint8 = 5 // Connection Rejected
-	NOTIF_SUBCODE_OTHER_CONFIG_CHANGE         uint8 = 6 // Other Configuration Change
-	NOTIF_SUBCODE_CONN_COLLISION_RESOLUTION   uint8 = 7 // Connection Collision Resolution
-	NOTIF_SUBCODE_OUT_OF_RESOURCES            uint8 = 8 // Out of Resources
-	NOTIF_SUBCODE_HARD_RESET                  uint8 = 9 // Hard Reset
+	NOTIF_SUBCODE_MAX_NUM_OF_PREFIXES_REACHED uint8 = 1  // Maximum Number of Prefixes Reached
+	NOTIF_SUBCODE_ADMIN_SHUTDOWN              uint8 = 2  // Administrative Shutdown
+	NOTIF_SUBCODE_PEER_DECONFIGURED           uint8 = 3  // Peer De-configured
+	NOTIF_SUBCODE_ADMIN_RESET                 uint8 = 4  // Administrative Reset
+	NOTIF_SUBCODE_CONN_REJECTED               uint8 = 5  // Connection Rejected
+	NOTIF_SUBCODE_OTHER_CONFIG_CHANGE         uint8 = 6  // Other Configuration Change
+	NOTIF_SUBCODE_CONN_COLLISION_RESOLUTION   uint8 = 7  // Connection Collision Resolution
+	NOTIF_SUBCODE_OUT_OF_RESOURCES            uint8 = 8  // Out of Resources
+	NOTIF_SUBCODE_HARD_RESET                  uint8 = 9  // Hard Reset
+	NOTIF_SUBCODE_BFD_DOWN                    uint8 = 10 // BFD Down
 )
 
-// BGP ROUTE-REFRESH Message Error subcodes, Updated: 2022-12-20
+// BGP ROUTE-REFRESH Message Error subcodes, Updated: 2023-01-18
 const (
 	NOTIF_SUBCODE_INVALID_MESSAGE_LEN uint8 = 1 // Invalid Message Length
 )
@@ -280,6 +282,7 @@ var (
 				NOTIF_SUBCODE_CONN_COLLISION_RESOLUTION:   "Connection Collision Resolution",
 				NOTIF_SUBCODE_OUT_OF_RESOURCES:            "Out of Resources",
 				NOTIF_SUBCODE_HARD_RESET:                  "Hard Reset",
+				NOTIF_SUBCODE_BFD_DOWN:                    "BFD Down",
 			},
 		},
 		NOTIF_CODE_ROUTE_REFRESH_MESSAGE_ERR: {
