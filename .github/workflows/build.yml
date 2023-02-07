@@ -20,4 +20,4 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Build
-        run: go build examples/simple/main.go
+        run: go build examples/features/main.go
