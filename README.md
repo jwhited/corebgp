@@ -8,7 +8,7 @@ CoreBGP is a BGP library written in Go that implements the BGP FSM with an event
 * handle incoming UPDATE messages
 * send outgoing UPDATE messages
 
-CoreBGP provides optional, composable UPDATE message decoding facilities via ([UpdateDecoder](https://pkg.go.dev/github.com/jwhited/corebgp#UpdateDecoder)). CoreBGP does not manage a routing table or send its own UPDATE messages. Those responsibilities are passed down to the user. Therefore, the intended user is someone who wants that responsibility.
+CoreBGP provides optional, composable UPDATE message decoding facilities via [UpdateDecoder](https://pkg.go.dev/github.com/jwhited/corebgp#example-UpdateDecoder). CoreBGP does not manage a routing table or send its own UPDATE messages. Those responsibilities are passed down to the user. Therefore, the intended user is someone who wants that responsibility.
 
 See this [blog post](https://www.jordanwhited.com/posts/corebgp-plugging-in-to-bgp/) for the background and reasoning behind the development of CoreBGP.
 
