@@ -1,6 +1,7 @@
 package corebgp
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -439,6 +440,13 @@ func (c *capabilityOptionalParam) encode() ([]byte, error) {
 type Capability struct {
 	Code  uint8
 	Value []byte
+}
+
+func (c Capability) Equal(d Capability) bool {
+	if c.Code != d.Code {
+		return false
+	}
+	return bytes.Equal(c.Value, d.Value)
 }
 
 func (c Capability) encode() []byte {
