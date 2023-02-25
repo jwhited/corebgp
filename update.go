@@ -374,45 +374,83 @@ func (n *NextHopPathAttr) Decode(flags PathAttrFlags, b []byte) error {
 	return nil
 }
 
-// decodePrefixes decodes a list of IP prefixes in b where each prefix is of the
-// form <length, prefix>. Length is expected to be a single octet indicating the
+func decodeAddPathPrefixes(b []byte, ipv6 bool) ([]AddPathPrefix, error) {
+	if len(b) < 1 {
+		return nil, nil
+	}
+	prefixes := make([]AddPathPrefix, 0)
+	for len(b) > 0 {
+		if len(b) < 5 {
+			return nil, fmt.Errorf("invalid octets: %d for add path prefix ipv6: %v", len(b), ipv6)
+		}
+		var (
+			a   AddPathPrefix
+			err error
+		)
+		a.ID = binary.BigEndian.Uint32(b)
+		b = b[4:]
+		a.Prefix, b, err = decodePrefix(b, ipv6)
+		if err != nil {
+			return nil, err
+		}
+		prefixes = append(prefixes, a)
+	}
+	return prefixes, nil
+}
+
+// decodePrefix decodes an IP prefix in b where prefix is of the form
+// <length, prefix>. Length is expected to be a single octet indicating the
 // length of the prefix in bits. Prefix contains the prefix followed by the
 // minimum number of trailing bits needed to make the end fall on an octet
-// boundary. If the address family of the prefixes is IPv6, the ipv6 argument
+// boundary. If the address family of the prefix is IPv6, the ipv6 argument
 // should be true, otherwise false.
+func decodePrefix(b []byte, ipv6 bool) (netip.Prefix, []byte, error) {
+	if len(b) < 1 {
+		return netip.Prefix{}, nil, errors.New("prefix must be at least 1 byte")
+	}
+	bl := b[0]
+	if (!ipv6 && bl > 32) || (ipv6 && bl > 128) {
+		return netip.Prefix{}, nil, fmt.Errorf("invalid bit len: %d ipv6: %v", bl, ipv6)
+	}
+	b = b[1:]
+	octets := (bl + 7) / 8
+	if len(b) < int(octets) {
+		return netip.Prefix{}, nil, fmt.Errorf("invalid octets: %d for bit len: %d ipv6: %v", octets, bl, ipv6)
+	}
+	var addr netip.Addr
+	if ipv6 {
+		if octets > 16 {
+			return netip.Prefix{}, nil, errors.New("octets > 16 for IPv6 prefix")
+		}
+		var addr16 [16]byte
+		copy(addr16[:], b[:octets])
+		addr = netip.AddrFrom16(addr16)
+	} else {
+		if octets > 4 {
+			return netip.Prefix{}, nil, errors.New("octets > 4 for IPv4 prefix")
+		}
+		var addr4 [4]byte
+		copy(addr4[:], b[:octets])
+		addr = netip.AddrFrom4(addr4)
+	}
+	return netip.PrefixFrom(addr, int(bl)), b[octets:], nil
+}
+
 func decodePrefixes(b []byte, ipv6 bool) ([]netip.Prefix, error) {
 	if len(b) < 1 {
 		return nil, nil
 	}
 	prefixes := make([]netip.Prefix, 0)
 	for len(b) > 0 {
-		bl := b[0]
-		if (!ipv6 && bl > 32) || (ipv6 && bl > 128) {
-			return nil, fmt.Errorf("invalid bit len: %d ipv6: %v", bl, ipv6)
+		var (
+			p   netip.Prefix
+			err error
+		)
+		p, b, err = decodePrefix(b, ipv6)
+		if err != nil {
+			return nil, err
 		}
-		b = b[1:]
-		octets := (bl + 7) / 8
-		if len(b) < int(octets) {
-			return nil, fmt.Errorf("invalid octets: %d for bit len: %d ipv6: %v", octets, bl, ipv6)
-		}
-		var addr netip.Addr
-		if ipv6 {
-			if octets > 16 {
-				return nil, errors.New("octets > 16 for IPv6 prefix")
-			}
-			var addr16 [16]byte
-			copy(addr16[:], b[:octets])
-			addr = netip.AddrFrom16(addr16)
-		} else {
-			if octets > 4 {
-				return nil, errors.New("octets > 4 for IPv4 prefix")
-			}
-			var addr4 [4]byte
-			copy(addr4[:], b[:octets])
-			addr = netip.AddrFrom4(addr4)
-		}
-		prefixes = append(prefixes, netip.PrefixFrom(addr, int(bl)))
-		b = b[octets:]
+		prefixes = append(prefixes, p)
 	}
 	return prefixes, nil
 }
@@ -630,12 +668,39 @@ func attrLenBadForCodeErr(code uint8, attrData []byte) *Notification {
 	}
 }
 
+// AddPathPrefix is a prefix with an add-path ID.
+// https://www.rfc-editor.org/rfc/rfc7911#section-3
+type AddPathPrefix struct {
+	Prefix netip.Prefix
+	ID     uint32
+}
+
 type DecodeFn[T any] func(t T, b []byte) error
 
+// NewNLRIAddPathDecodeFn returns a DecodeFn to be used by an UpdateDecoder for
+// decoding the NLRI field of an UPDATE message containing add-path prefixes.
+// The closure fn will be passed type T and a slice of AddPathPrefix.
+func NewNLRIAddPathDecodeFn[T any](fn func(t T, a []AddPathPrefix) error) DecodeFn[T] {
+	return func(t T, b []byte) error {
+		prefixes, err := decodeAddPathPrefixes(b, false)
+		if err != nil {
+			// https://www.rfc-editor.org/rfc/rfc4271#page-34
+			// The NLRI field in the UPDATE message is checked for syntactic
+			// validity.  If the field is syntactically incorrect, then the
+			// Error Subcode MUST be set to Invalid Network Field.
+			return &Notification{
+				Code:    NOTIF_CODE_UPDATE_MESSAGE_ERR,
+				Subcode: NOTIF_SUBCODE_INVALID_NETWORK_FIELD,
+			}
+		}
+		return fn(t, prefixes)
+	}
+}
+
 // NewNLRIDecodeFn returns a DecodeFn to be used by an UpdateDecoder for
-// decoding the NLRI field of an UPDATE message. The closure fn enables
-// assignment of the decoded prefixes into type T.
-func NewNLRIDecodeFn[T any](fn func(t T, r []netip.Prefix) error) DecodeFn[T] {
+// decoding the NLRI field of an UPDATE message. The closure fn will be passed
+// type T and a slice of netip.Prefix.
+func NewNLRIDecodeFn[T any](fn func(t T, p []netip.Prefix) error) DecodeFn[T] {
 	return func(t T, b []byte) error {
 		prefixes, err := decodePrefixes(b, false)
 		if err != nil {
@@ -682,6 +747,26 @@ func DecodeMPReachIPv6NextHops(nh []byte) ([]netip.Addr, error) {
 	return nhs, nil
 }
 
+// DecodeMPIPv6AddPathPrefixes decodes IPv6 add-path prefixes in b with
+// multiprotocol error handling consistent with RFC7606.
+func DecodeMPIPv6AddPathPrefixes(b []byte) ([]AddPathPrefix, error) {
+	prefixes, err := decodeAddPathPrefixes(b, true)
+	if err != nil {
+		// https://www.rfc-editor.org/rfc/rfc7606#page-7
+		// Finally, we observe that in order to use the approach of "treat-
+		// as-withdraw", the entire NLRI field and/or the MP_REACH_NLRI and
+		// MP_UNREACH_NLRI attributes need to be successfully parsed -- what
+		// this entails is discussed in more detail in Section 5.  If this
+		// is not possible, the procedures of [RFC4271] and/or [RFC4760]
+		// continue to apply, meaning that the "session reset" approach (or
+		// the "AFI/SAFI disable" approach) MUST be followed.
+		return nil, &Notification{
+			Code: NOTIF_CODE_UPDATE_MESSAGE_ERR,
+		}
+	}
+	return prefixes, nil
+}
+
 // DecodeMPIPv6Prefixes decodes IPv6 prefixes in b with multiprotocol error
 // handling consistent with RFC7606.
 func DecodeMPIPv6Prefixes(b []byte) ([]netip.Prefix, error) {
@@ -702,10 +787,28 @@ func DecodeMPIPv6Prefixes(b []byte) ([]netip.Prefix, error) {
 	return prefixes, nil
 }
 
+// NewWithdrawnAddPathRoutesDecodeFn returns a DecodeFn to be used by an
+// UpdateDecoder for decoding the withdrawn routes field of an UPDATE message
+// containing add-path prefixes. The closure fn will be passed type T and
+// a slice of AddPathPrefix.
+func NewWithdrawnAddPathRoutesDecodeFn[T any](fn func(t T, a []AddPathPrefix) error) DecodeFn[T] {
+	return func(t T, b []byte) error {
+		prefixes, err := decodeAddPathPrefixes(b, false)
+		if err != nil {
+			// Neither RFC4271 or RFC7606 define specific error handling for
+			// this case.
+			return &Notification{
+				Code: NOTIF_CODE_UPDATE_MESSAGE_ERR,
+			}
+		}
+		return fn(t, prefixes)
+	}
+}
+
 // NewWithdrawnRoutesDecodeFn returns a DecodeFn to be used by an UpdateDecoder
 // for decoding the withdrawn routes field of an UPDATE message. The closure fn
-// enables assignment of the decoded prefixes into type T.
-func NewWithdrawnRoutesDecodeFn[T any](fn func(t T, r []netip.Prefix) error) DecodeFn[T] {
+// will be passed type T and a slice of netip.Prefix.
+func NewWithdrawnRoutesDecodeFn[T any](fn func(t T, p []netip.Prefix) error) DecodeFn[T] {
 	return func(t T, b []byte) error {
 		prefixes, err := decodePrefixes(b, false)
 		if err != nil {
@@ -723,8 +826,8 @@ type MPPathAttrDecodeFn[T any] func(t T, flags PathAttrFlags, b []byte) error
 
 // NewMPReachNLRIDecodeFn returns a MPPathAttrDecodeFn that can be used to
 // compose logic for decoding a MP_REACH_NLRI path attribute through the
-// provided closure fn. The closure is passed the afi, safi, next hop, and NLRI
-// fields for the path attribute.
+// provided closure fn. The closure fn will be passed type T, the afi, safi,
+// next hop bytes, and nlri bytes.
 func NewMPReachNLRIDecodeFn[T any](fn func(t T, afi uint16, safi uint8, nh, nlri []byte) error) MPPathAttrDecodeFn[T] {
 	return func(t T, flags PathAttrFlags, b []byte) error {
 		me := flags.Validate(PATH_ATTR_MP_REACH_NLRI, b, true, false)
@@ -744,8 +847,8 @@ func NewMPReachNLRIDecodeFn[T any](fn func(t T, afi uint16, safi uint8, nh, nlri
 
 // NewMPUnreachNLRIDecodeFn returns a MPPathAttrDecodeFn that can be used to
 // compose logic for decoding a MP_UNREACH_NLRI path attribute through the
-// provided closure fn. The closure is passed the afi, safi, and withdrawn
-// fields for the path attribute.
+// provided closure fn. The closure fn will be passed type T, the afi, safi,
+// and withdrawn field for the path attribute.
 func NewMPUnreachNLRIDecodeFn[T any](fn func(t T, afi uint16, safi uint8, withdrawn []byte) error) MPPathAttrDecodeFn[T] {
 	return func(t T, flags PathAttrFlags, b []byte) error {
 		me := flags.Validate(PATH_ATTR_MP_UNREACH_NLRI, b, true, false)
