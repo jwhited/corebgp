@@ -1,8 +1,10 @@
 package corebgp
 
 import (
-	"github.com/stretchr/testify/assert"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCapability_Equal(t *testing.T) {
@@ -83,6 +85,84 @@ func TestCapability_Equal(t *testing.T) {
 				Value: tt.fields.Value,
 			}
 			assert.Equalf(t, tt.want, c.Equal(tt.args.d), "Equal(%v)", tt.args.d)
+		})
+	}
+}
+
+func TestDecodeAddPathTuples(t *testing.T) {
+	type args struct {
+		b []byte
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []AddPathTuple
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "valid tuples",
+			args: args{
+				b: []byte{
+					0x00, 0x01, // afi
+					0x01,       // safi
+					0x02,       // tx
+					0x00, 0x02, // afi
+					0x01,       // safi
+					0x01,       // tx
+					0x00, 0x03, // afi
+					0x01, // safi
+					0x03, // tx
+				},
+			},
+			want: []AddPathTuple{
+				{
+					AFI:  1,
+					SAFI: 1,
+					Tx:   true,
+				},
+				{
+					AFI:  2,
+					SAFI: 1,
+					Rx:   true,
+				},
+				{
+					AFI:  3,
+					SAFI: 1,
+					Tx:   true,
+					Rx:   true,
+				},
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "invalid tuple on tail",
+			args: args{
+				b: []byte{
+					0x00, 0x01, // afi
+					0x01,       // safi
+					0x02,       // tx
+					0x00, 0x02, // afi
+					0x01,       // safi
+					0x01,       // tx
+					0x00, 0x03, // afi
+					0x01,       // safi
+					0x03,       // tx
+					0x00, 0x03, // afi
+					0x01, // safi
+					// no direction octet
+				},
+			},
+			want:    nil,
+			wantErr: assert.Error,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := DecodeAddPathTuples(tt.args.b)
+			if !tt.wantErr(t, err, fmt.Sprintf("DecodeAddPathTuples(%v)", tt.args.b)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "DecodeAddPathTuples(%v)", tt.args.b)
 		})
 	}
 }

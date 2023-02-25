@@ -371,6 +371,28 @@ func TestUpdateDecoder_Decode(t *testing.T) {
 					},
 				},
 			},
+			{
+				name: "add-path bird bug",
+				toDecode: []byte{
+					0x00, 0x00, // withdrawn routes length
+					0x00, 0x14, // total path attribute length
+					0x40, 0x01, 0x01, 0x00, // origin igp
+					0x40, 0x02, 0x06, 0x02, 0x01, 0x00, 0x00, 0xfd, 0xea, // as path 65002
+					0x40, 0x03, 0x04, 0xc0, 0x00, 0x02, 0x02, // next hop 192.0.2.2
+					0x00, 0x00, 0x00, 0x06, 0x18, 0xc0, 0x00, 0x02, // id 6 192.0.2.0/24
+				},
+				want: &updateMessageForTests{
+					addPath: true,
+					asPath:  []uint32{65002},
+					nextHop: netip.MustParseAddr("192.0.2.2"),
+					addPathNLRI: []AddPathPrefix{
+						{
+							Prefix: netip.MustParsePrefix("192.0.2.0/24"),
+							ID:     6,
+						},
+					},
+				},
+			},
 		}
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
