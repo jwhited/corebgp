@@ -26,18 +26,25 @@ var (
 	bindAddr      = flag.String("bind", ":179", "listen address")
 	passive       = flag.Bool("passive", false, "disable outbound connections")
 	md5           = flag.String("md5", "", "tcp md5 signature")
+	addPath       = flag.Bool("add-path", false, "enable add-path")
 )
 
 type updateMessage struct {
-	withdrawn     []netip.Prefix
-	origin        uint8
-	asPath        []uint32
-	nextHop       netip.Addr
-	communities   []uint32
-	nlri          []netip.Prefix
-	ipv6NextHops  []netip.Addr
-	ipv6NLRI      []netip.Prefix
-	ipv6Withdrawn []netip.Prefix
+	addPathIPv4          bool
+	addPathIPv6          bool
+	withdrawn            []netip.Prefix
+	addPathWithdrawn     []corebgp.AddPathPrefix
+	origin               uint8
+	asPath               []uint32
+	nextHop              netip.Addr
+	communities          []uint32
+	nlri                 []netip.Prefix
+	addPathNLRI          []corebgp.AddPathPrefix
+	ipv6NextHops         []netip.Addr
+	ipv6NLRI             []netip.Prefix
+	addPathIPv6NLRI      []corebgp.AddPathPrefix
+	ipv6Withdrawn        []netip.Prefix
+	addPathIPv6Withdrawn []corebgp.AddPathPrefix
 }
 
 func fmtSlice[T any](t []T, name string, sb *strings.Builder) {
@@ -60,7 +67,9 @@ func (u updateMessage) String() string {
 	var sb strings.Builder
 	fmtSlice[netip.Prefix](u.nlri, "nlri", &sb)
 	fmtSlice[netip.Prefix](u.ipv6NLRI, "ipv6NLRI", &sb)
-	if len(u.nlri) > 0 || len(u.ipv6NLRI) > 0 {
+	fmtSlice[corebgp.AddPathPrefix](u.addPathNLRI, "addPathNLRI", &sb)
+	fmtSlice[corebgp.AddPathPrefix](u.addPathIPv6NLRI, "addPathIPv6NLRI", &sb)
+	if len(u.nlri) > 0 || len(u.ipv6NLRI) > 0 || len(u.addPathNLRI) > 0 || len(u.addPathIPv6NLRI) > 0 {
 		sb.WriteString(fmt.Sprintf(" origin=%v", u.origin))
 		if len(u.nlri) > 0 {
 			sb.WriteString(fmt.Sprintf(" nextHop=%v", u.nextHop))
@@ -73,6 +82,8 @@ func (u updateMessage) String() string {
 	fmtSlice[string](commsFmt(u.communities), "communities", &sb)
 	fmtSlice[netip.Prefix](u.withdrawn, "withdrawn", &sb)
 	fmtSlice[netip.Prefix](u.ipv6Withdrawn, "ipv6Withdrawn", &sb)
+	fmtSlice[corebgp.AddPathPrefix](u.addPathWithdrawn, "addPathWithdrawn", &sb)
+	fmtSlice[corebgp.AddPathPrefix](u.addPathIPv6Withdrawn, "addPathIPv6Withdrawn", &sb)
 	if sb.Len() == 0 {
 		return "End-of-RIB"
 	}
@@ -87,12 +98,21 @@ func newPathAttrsDecodeFn() func(m *updateMessage, code uint8, flags corebgp.Pat
 				if err != nil {
 					return err
 				}
-				prefixes, err := corebgp.DecodeMPIPv6Prefixes(nlri)
-				if err != nil {
-					return err
+				if m.addPathIPv6 {
+					prefixes, err := corebgp.DecodeMPIPv6AddPathPrefixes(nlri)
+					if err != nil {
+						return err
+					}
+					m.addPathIPv6NLRI = prefixes
+				} else {
+					prefixes, err := corebgp.DecodeMPIPv6Prefixes(nlri)
+					if err != nil {
+						return err
+					}
+					m.ipv6NLRI = prefixes
 				}
+
 				m.ipv6NextHops = nhs
-				m.ipv6NLRI = prefixes
 			}
 			return nil
 		},
@@ -100,11 +120,19 @@ func newPathAttrsDecodeFn() func(m *updateMessage, code uint8, flags corebgp.Pat
 	unreachDecodeFn := corebgp.NewMPUnreachNLRIDecodeFn[*updateMessage](
 		func(m *updateMessage, afi uint16, safi uint8, withdrawn []byte) error {
 			if afi == corebgp.AFI_IPV6 && safi == corebgp.SAFI_UNICAST {
-				prefixes, err := corebgp.DecodeMPIPv6Prefixes(withdrawn)
-				if err != nil {
-					return err
+				if m.addPathIPv6 {
+					prefixes, err := corebgp.DecodeMPIPv6AddPathPrefixes(withdrawn)
+					if err != nil {
+						return err
+					}
+					m.addPathIPv6Withdrawn = prefixes
+				} else {
+					prefixes, err := corebgp.DecodeMPIPv6Prefixes(withdrawn)
+					if err != nil {
+						return err
+					}
+					m.ipv6Withdrawn = prefixes
 				}
-				m.ipv6Withdrawn = prefixes
 			}
 			return nil
 		},
@@ -152,7 +180,8 @@ func newPathAttrsDecodeFn() func(m *updateMessage, code uint8, flags corebgp.Pat
 }
 
 type plugin struct {
-	ud *corebgp.UpdateDecoder[*updateMessage]
+	ud                       *corebgp.UpdateDecoder[*updateMessage]
+	addPathIPv4, addPathIPv6 bool
 }
 
 func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
@@ -163,11 +192,52 @@ func (p *plugin) GetCapabilities(c corebgp.PeerConfig) []corebgp.Capability {
 	if *ipv6 {
 		caps = append(caps, corebgp.NewMPExtensionsCapability(corebgp.AFI_IPV6, corebgp.SAFI_UNICAST))
 	}
+	if *addPath {
+		tuples := make([]corebgp.AddPathTuple, 0)
+		tuples = append(tuples, corebgp.AddPathTuple{
+			AFI:  corebgp.AFI_IPV4,
+			SAFI: corebgp.SAFI_UNICAST,
+			Tx:   true,
+			Rx:   true,
+		})
+		if *ipv6 {
+			tuples = append(tuples, corebgp.AddPathTuple{
+				AFI:  corebgp.AFI_IPV6,
+				SAFI: corebgp.SAFI_UNICAST,
+				Tx:   true,
+				Rx:   true,
+			})
+		}
+		caps = append(caps, corebgp.NewAddPathCapability(tuples))
+	}
 	return caps
 }
 
 func (p *plugin) OnOpenMessage(peer corebgp.PeerConfig, routerID netip.Addr, capabilities []corebgp.Capability) *corebgp.Notification {
 	log.Println("open message received")
+	if *addPath {
+		p.addPathIPv4 = false
+		p.addPathIPv6 = false
+		for _, c := range capabilities {
+			if c.Code != corebgp.CAP_ADD_PATH {
+				continue
+			}
+			tuples, err := corebgp.DecodeAddPathTuples(c.Value)
+			if err != nil {
+				return err.(*corebgp.Notification)
+			}
+			for _, tuple := range tuples {
+				if tuple.SAFI != corebgp.SAFI_UNICAST || !tuple.Tx {
+					continue
+				}
+				if tuple.AFI == corebgp.AFI_IPV4 {
+					p.addPathIPv4 = true
+				} else if tuple.AFI == corebgp.AFI_IPV6 {
+					p.addPathIPv6 = true
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -183,13 +253,50 @@ func (p *plugin) OnClose(peer corebgp.PeerConfig) {
 }
 
 func (p *plugin) handleUpdate(peer corebgp.PeerConfig, b []byte) *corebgp.Notification {
-	m := &updateMessage{}
+	m := &updateMessage{
+		addPathIPv4: p.addPathIPv4,
+		addPathIPv6: p.addPathIPv6,
+	}
 	err := p.ud.Decode(m, b)
 	if err != nil {
 		return corebgp.UpdateNotificationFromErr(err)
 	}
 	log.Printf("got update message: %s", m)
 	return nil
+}
+
+func newWithdrawnRoutesDecodeFn() corebgp.DecodeFn[*updateMessage] {
+	fn := corebgp.NewWithdrawnRoutesDecodeFn[*updateMessage](func(u *updateMessage, p []netip.Prefix) error {
+		u.withdrawn = p
+		return nil
+	})
+	apFn := corebgp.NewWithdrawnAddPathRoutesDecodeFn[*updateMessage](func(u *updateMessage, a []corebgp.AddPathPrefix) error {
+		u.addPathWithdrawn = a
+		return nil
+	})
+	return func(u *updateMessage, b []byte) error {
+		if u.addPathIPv4 {
+			return apFn(u, b)
+		}
+		return fn(u, b)
+	}
+}
+
+func newNLRIDecodeFn() corebgp.DecodeFn[*updateMessage] {
+	fn := corebgp.NewNLRIDecodeFn[*updateMessage](func(u *updateMessage, p []netip.Prefix) error {
+		u.nlri = p
+		return nil
+	})
+	apFn := corebgp.NewNLRIAddPathDecodeFn[*updateMessage](func(u *updateMessage, a []corebgp.AddPathPrefix) error {
+		u.addPathNLRI = a
+		return nil
+	})
+	return func(u *updateMessage, b []byte) error {
+		if u.addPathIPv4 {
+			return apFn(u, b)
+		}
+		return fn(u, b)
+	}
 }
 
 func main() {
@@ -233,15 +340,9 @@ func main() {
 	}
 	p := &plugin{
 		ud: corebgp.NewUpdateDecoder[*updateMessage](
-			corebgp.NewWithdrawnRoutesDecodeFn(func(m *updateMessage, r []netip.Prefix) error {
-				m.withdrawn = r
-				return nil
-			}),
+			newWithdrawnRoutesDecodeFn(),
 			newPathAttrsDecodeFn(),
-			corebgp.NewNLRIDecodeFn(func(m *updateMessage, r []netip.Prefix) error {
-				m.nlri = r
-				return nil
-			}),
+			newNLRIDecodeFn(),
 		),
 	}
 	peerOpts := make([]corebgp.PeerOption, 0)
@@ -286,8 +387,8 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	select {
-	case <-sigCh:
-		log.Println("got signal")
+	case sig := <-sigCh:
+		log.Printf("got signal: %s", sig)
 		srv.Close()
 		<-srvErrCh
 	case err := <-srvErrCh:

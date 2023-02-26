@@ -69,6 +69,88 @@ func prependHeader(m []byte, t uint8) []byte {
 	return b
 }
 
+type AddPathTuple struct {
+	AFI  uint16
+	SAFI uint8
+	Tx   bool
+	Rx   bool
+}
+
+func DecodeAddPathTuples(b []byte) ([]AddPathTuple, error) {
+	if len(b) == 0 || len(b)%4 != 0 {
+		return nil, &Notification{
+			Code: NOTIF_CODE_OPEN_MESSAGE_ERR,
+		}
+	}
+	tuples := make([]AddPathTuple, 0, len(b)/4)
+	for len(b) > 0 {
+		var a AddPathTuple
+		err := a.Decode(b)
+		if err != nil {
+			return nil, err
+		}
+		tuples = append(tuples, a)
+		b = b[4:]
+	}
+	return tuples, nil
+}
+
+func (a *AddPathTuple) Decode(b []byte) error {
+	if len(b) < 4 {
+		return errors.New("too short")
+	}
+	a.AFI = binary.BigEndian.Uint16(b)
+	a.SAFI = b[2]
+	switch b[3] {
+	case 3:
+		a.Tx = true
+		a.Rx = true
+	case 2:
+		a.Tx = true
+	case 1:
+		a.Rx = true
+	default:
+		return &Notification{
+			Code: NOTIF_CODE_OPEN_MESSAGE_ERR,
+		}
+	}
+	return nil
+}
+
+func (a *AddPathTuple) Encode() []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint16(b, a.AFI)
+	b[2] = a.SAFI
+	switch {
+	// https://www.rfc-editor.org/rfc/rfc7911#page-4
+	// Send/Receive:
+	//  This field indicates whether the sender is (a) able to receive
+	//  multiple paths from its peer (value 1), (b) able to send
+	//  multiple paths to its peer (value 2), or (c) both (value 3) for
+	//  the <AFI, SAFI>.
+	case a.Tx && a.Rx:
+		b[3] = 3
+	case a.Tx:
+		b[3] = 2
+	case a.Rx:
+		b[3] = 1
+	}
+	return b
+}
+
+// NewAddPathCapability returns an add-path Capability for the provided
+// AddPathTuples.
+func NewAddPathCapability(tuples []AddPathTuple) Capability {
+	value := make([]byte, 0, 4*len(tuples))
+	for _, tuple := range tuples {
+		value = append(value, tuple.Encode()...)
+	}
+	return Capability{
+		Code:  CAP_ADD_PATH,
+		Value: value,
+	}
+}
+
 // NewMPExtensionsCapability returns a Multiprotocol Extensions Capability for
 // the provided AFI and SAFI.
 func NewMPExtensionsCapability(afi uint16, safi uint8) Capability {
