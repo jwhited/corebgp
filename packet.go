@@ -97,7 +97,9 @@ func DecodeAddPathTuples(b []byte) ([]AddPathTuple, error) {
 
 func (a *AddPathTuple) Decode(b []byte) error {
 	if len(b) < 4 {
-		return errors.New("too short")
+		return &Notification{
+			Code: NOTIF_CODE_OPEN_MESSAGE_ERR,
+		}
 	}
 	a.AFI = binary.BigEndian.Uint16(b)
 	a.SAFI = b[2]
