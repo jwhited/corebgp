@@ -1,4 +1,4 @@
-FROM golang:1.20
+FROM golang:1.21
 ARG BIRD_VERSION=v2.0.12
 
 # utils & BIRD deps

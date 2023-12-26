@@ -197,13 +197,6 @@ func (p *peer) handleStateTransition(i int, t stateTransition) {
 	}
 }
 
-func min(a, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func direction(i int) string {
 	if i == in {
 		return "in"
