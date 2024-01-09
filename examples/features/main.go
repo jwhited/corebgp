@@ -38,6 +38,9 @@ type updateMessage struct {
 	asPath               []uint32
 	nextHop              netip.Addr
 	communities          []uint32
+	largeCommunities     corebgp.LargeCommunitiesPathAttr
+	localPref            uint32
+	med                  uint32
 	nlri                 []netip.Prefix
 	addPathNLRI          []corebgp.AddPathPrefix
 	ipv6NextHops         []netip.Addr
@@ -64,6 +67,13 @@ func (u updateMessage) String() string {
 		}
 		return comms
 	}
+	largeCommsFmt := func(in corebgp.LargeCommunitiesPathAttr) []string {
+		lc := make([]string, 0, len(in))
+		for _, c := range in {
+			lc = append(lc, fmt.Sprintf("%d:%d:%d", c.GlobalAdmin, c.LocalData1, c.LocalData2))
+		}
+		return lc
+	}
 	var sb strings.Builder
 	fmtSlice[netip.Prefix](u.nlri, "nlri", &sb)
 	fmtSlice[netip.Prefix](u.ipv6NLRI, "ipv6NLRI", &sb)
@@ -78,8 +88,15 @@ func (u updateMessage) String() string {
 			fmtSlice[netip.Addr](u.ipv6NextHops, "ipv6NextHops", &sb)
 		}
 	}
+	if u.med > 0 {
+		sb.WriteString(fmt.Sprintf(" med=%d", u.med))
+	}
+	if u.localPref > 0 {
+		sb.WriteString(fmt.Sprintf(" localPref=%d", u.localPref))
+	}
 	fmtSlice[uint32](u.asPath, "asPath", &sb)
 	fmtSlice[string](commsFmt(u.communities), "communities", &sb)
+	fmtSlice[string](largeCommsFmt(u.largeCommunities), "large-communities", &sb)
 	fmtSlice[netip.Prefix](u.withdrawn, "withdrawn", &sb)
 	fmtSlice[netip.Prefix](u.ipv6Withdrawn, "ipv6Withdrawn", &sb)
 	fmtSlice[corebgp.AddPathPrefix](u.addPathWithdrawn, "addPathWithdrawn", &sb)
@@ -170,6 +187,24 @@ func newPathAttrsDecodeFn() func(m *updateMessage, code uint8, flags corebgp.Pat
 				return err
 			}
 			m.communities = comms
+		case corebgp.PATH_ATTR_LOCAL_PREF:
+			var lpref corebgp.LocalPrefPathAttr
+			if err := lpref.Decode(flags, b); err != nil {
+				return err
+			}
+			m.localPref = uint32(lpref)
+		case corebgp.PATH_ATTR_LARGE_COMMUNITY:
+			var lc corebgp.LargeCommunitiesPathAttr
+			if err := lc.Decode(flags, b); err != nil {
+				return err
+			}
+			m.largeCommunities = lc
+		case corebgp.PATH_ATTR_MED:
+			var med corebgp.MEDPathAttr
+			if err := med.Decode(flags, b); err != nil {
+				return err
+			}
+			m.med = uint32(med)
 		case corebgp.PATH_ATTR_MP_REACH_NLRI:
 			return reachDecodeFn(m, flags, b)
 		case corebgp.PATH_ATTR_MP_UNREACH_NLRI:
