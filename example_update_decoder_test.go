@@ -2,8 +2,9 @@ package corebgp_test
 
 import (
 	"fmt"
-	"github.com/jwhited/corebgp"
 	"net/netip"
+
+	"github.com/jwhited/corebgp"
 )
 
 type updateMessage struct {

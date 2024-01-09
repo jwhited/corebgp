@@ -259,6 +259,23 @@ func decodeUint32Set(b []byte) ([]uint32, error) {
 	return ret, nil
 }
 
+func decodeLargeCommunitySet(b []byte) (LargeCommunitiesPathAttr, error) {
+	if len(b)%12 != 0 {
+		return nil, fmt.Errorf("invalid large community set len: %d", len(b))
+	}
+	ret := make([]LargeCommunity, 0, len(b)/12)
+	for len(b) >= 12 {
+		lc := LargeCommunity{
+			GlobalAdmin: binary.BigEndian.Uint32(b[:4]),
+			LocalData1:  binary.BigEndian.Uint32(b[4:8]),
+			LocalData2:  binary.BigEndian.Uint32(b[8:12]),
+		}
+		ret = append(ret, lc)
+		b = b[12:]
+	}
+	return ret, nil
+}
+
 func notifDataForAttrBasedErr(code uint8, attrData []byte) []byte {
 	nData := make([]byte, 0, 1+2+len(attrData))
 	nData = append(nData, code)
@@ -481,7 +498,7 @@ func (m *MEDPathAttr) Decode(flags PathAttrFlags, b []byte) error {
 type LocalPrefPathAttr uint32
 
 func (l *LocalPrefPathAttr) Decode(flags PathAttrFlags, b []byte) error {
-	err := flags.Validate(PATH_ATTR_LOCAL_PREF, b, true, false)
+	err := flags.Validate(PATH_ATTR_LOCAL_PREF, b, false, true)
 	if err != nil {
 		return err
 	}
@@ -562,6 +579,48 @@ func (a *AggregatorPathAttr) Decode(flags PathAttrFlags, b []byte) error {
 	}
 	(*a).AS = binary.BigEndian.Uint32(b)
 	(*a).IP, _ = netip.AddrFromSlice(b[4:])
+	return nil
+}
+
+type LargeCommunity struct {
+	GlobalAdmin, LocalData1, LocalData2 uint32
+}
+
+type LargeCommunitiesPathAttr []LargeCommunity
+
+func (l *LargeCommunitiesPathAttr) Decode(flags PathAttrFlags, b []byte) error {
+	err := flags.Validate(PATH_ATTR_LARGE_COMMUNITY, b, true, true)
+	if err != nil {
+		return err
+	}
+	if len(b) < 12 || len(b)%12 != 0 {
+		// https://www.rfc-editor.org/rfc/rfc8092#page-5
+		// The error handling of BGP Large Communities is as follows:
+		//
+		//  o  A BGP Large Communities attribute SHALL be considered malformed if
+		//     the length of the BGP Large Communities Attribute value, expressed
+		//     in octets, is not a non-zero multiple of 12.
+		//
+		//  o  A BGP Large Communities attribute SHALL NOT be considered
+		//     malformed due to presence of duplicate Large Community values.
+		//
+		//  o  A BGP UPDATE message with a malformed BGP Large Communities
+		//     attribute SHALL be handled using the approach of "treat-as-
+		//     withdraw" as described in Section 2 of [RFC7606].
+		return &TreatAsWithdrawUpdateErr{
+			Code:         PATH_ATTR_LARGE_COMMUNITY,
+			Notification: attrLenBadForCodeErr(PATH_ATTR_LARGE_COMMUNITY, b),
+		}
+	}
+	s, err := decodeLargeCommunitySet(b)
+	if err != nil {
+		return &TreatAsWithdrawUpdateErr{
+			Code:         PATH_ATTR_LARGE_COMMUNITY,
+			Notification: attrLenBadForCodeErr(PATH_ATTR_LARGE_COMMUNITY, b),
+		}
+	}
+
+	*l = s
 	return nil
 }
 

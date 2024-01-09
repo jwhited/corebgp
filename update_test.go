@@ -2,6 +2,7 @@ package corebgp
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
 	"reflect"
 	"testing"
@@ -15,6 +16,10 @@ type updateMessageForTests struct {
 	addPathWithdrawn     []AddPathPrefix
 	origin               uint8
 	asPath               []uint32
+	communities          []uint32
+	largeCommunities     LargeCommunitiesPathAttr
+	localPref            uint32
+	med                  uint32
 	nextHop              netip.Addr
 	nlri                 []netip.Prefix
 	addPathNLRI          []AddPathPrefix
@@ -97,6 +102,33 @@ func newPathAttrsDecodeFn() func(m *updateMessageForTests, code uint8, flags Pat
 			}
 			m.nextHop = netip.Addr(nh)
 			return nil
+		case PATH_ATTR_COMMUNITY:
+			var comms CommunitiesPathAttr
+			err := comms.Decode(flags, b)
+			if err != nil {
+				return err
+			}
+			m.communities = comms
+		case PATH_ATTR_LOCAL_PREF:
+			var lpref LocalPrefPathAttr
+			if err := lpref.Decode(flags, b); err != nil {
+				fmt.Printf("error decoding local pref: %v", err)
+				return err
+			}
+			m.localPref = uint32(lpref)
+		case PATH_ATTR_LARGE_COMMUNITY:
+			var lc LargeCommunitiesPathAttr
+			if err := lc.Decode(flags, b); err != nil {
+				return err
+			}
+			m.largeCommunities = lc
+		case PATH_ATTR_MED:
+			var med MEDPathAttr
+			if err := med.Decode(flags, b); err != nil {
+				fmt.Printf("error decoding med: %v", err)
+				return err
+			}
+			m.med = uint32(med)
 		case PATH_ATTR_MP_REACH_NLRI:
 			return reachDecodeFn(m, flags, b)
 		case PATH_ATTR_MP_UNREACH_NLRI:
@@ -390,6 +422,38 @@ func TestUpdateDecoder_Decode(t *testing.T) {
 							Prefix: netip.MustParsePrefix("192.0.2.0/24"),
 							ID:     6,
 						},
+					},
+				},
+			},
+			{
+				name: "decode lpref, med, communities, large communities",
+				toDecode: []byte{
+					0x00, 0x00, // withdrawn routes length
+					0x00, 0x40, // total path attribute length
+					0x40, 0x01, 0x01, 0x00, // origin igp
+					0x40, 0x02, 0x0a, 0x02, 0x02, 0x00, 0x00, 0xfe, 0x4c, 0x00, 0x00, 0xfe, 0x4c, // as_path 65100 65100
+					0x40, 0x03, 0x04, 0xc0, 0x00, 0x02, 0x02, // next_hop 192.0.2.2
+					0x80, 0x04, 0x04, 0x00, 0x00, 0x00, 0x62, // med 98
+					0x40, 0x05, 0x04, 0x00, 0x00, 0x00, 0x32, // local pref 50
+					0xc0, 0x08, 0x08, 0x00, 0x64, 0x00, 0xc8, 0x01, 0x2c, 0x01, 0x90, // communities 100:200 300:400
+					0xc0, 0x20, 0x0c, 0x00, 0x00, 0xfe, 0x50, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // large-communities 65104:1:1
+					0x18, 0xc6, 0x33, 0x64, // nlri 198.51.100.0/24
+				},
+				want: &updateMessageForTests{
+					asPath:      []uint32{65100, 65100},
+					nextHop:     netip.MustParseAddr("192.0.2.2"),
+					med:         98,
+					localPref:   50,
+					communities: []uint32{6553800, 19661200},
+					largeCommunities: LargeCommunitiesPathAttr{
+						{
+							GlobalAdmin: 65104,
+							LocalData1:  1,
+							LocalData2:  1,
+						},
+					},
+					nlri: []netip.Prefix{
+						netip.MustParsePrefix("198.51.100.0/24"),
 					},
 				},
 			},
