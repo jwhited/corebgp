@@ -271,7 +271,7 @@ func (o *openMessage) validate(localID, localAS, remoteAS uint32) error {
 	var id [4]byte
 	binary.BigEndian.PutUint32(id[:], o.bgpID)
 	addr := netip.AddrFrom4(id)
-	if !addr.IsGlobalUnicast() {
+	if addr.IsMulticast() {
 		n := newNotification(NOTIF_CODE_OPEN_MESSAGE_ERR,
 			NOTIF_SUBCODE_BAD_BGP_ID, nil)
 		return newNotificationError(n, true)
