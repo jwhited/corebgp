@@ -309,6 +309,12 @@ func (a *ASPathAttr) Decode(flags PathAttrFlags, b []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// empty AS-PATH
+	if len(b) == 0 {
+		return nil
+	}
+
 	if len(b) < 6 || len(b)%2 != 0 { // corebgp requires four octet AS
 		return &TreatAsWithdrawUpdateErr{
 			Code:         PATH_ATTR_AS_PATH,
