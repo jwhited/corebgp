@@ -341,7 +341,8 @@ func (a *ASPathAttr) Decode(flags PathAttrFlags, b []byte) error {
 			}
 		}
 		segType := b[0]
-		segLen := int(b[1] * 4)
+		// cast length to int otherwise it wraps the uint8/byte
+		segLen := int(b[1]) * 4
 		if segLen == 0 {
 			return asPathMalformedErr()
 		}
