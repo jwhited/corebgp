@@ -19,6 +19,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: start bird container
-        run: docker-compose up -d bird
+        run: docker compose up -d bird
       - name: bird integration test
-        run: docker-compose up --abort-on-container-exit --exit-code-from corebgp
+        run: docker compose up --abort-on-container-exit --exit-code-from corebgp
