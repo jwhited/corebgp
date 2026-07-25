@@ -1,27 +1,28 @@
 package corebgp
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // Logger is a log.Print-compatible function
 type Logger func(...interface{})
 
 var (
-	logger Logger = nil
+	defaultLogger Logger = nil
 )
 
-// SetLogger enables logging with the provided Logger.
+// SetDefaultLogger sets the default logger for all instances
+// of a corebgp server. Passing the WithLogger option to the server
+// constructor is preferred as this is function is maintained for
+// backwards compatibility.
 func SetLogger(l Logger) {
-	logger = l
+	defaultLogger = l
 }
 
-func log(v ...interface{}) {
-	if logger != nil {
-		logger(v...)
+func (l Logger) log(v ...interface{}) {
+	if l != nil {
+		l(v...)
 	}
 }
 
-func logf(format string, v ...interface{}) {
-	log(fmt.Sprintf(format, v...))
+func (l Logger) logf(format string, v ...interface{}) {
+	l.log(fmt.Sprintf(format, v...))
 }

@@ -11,9 +11,10 @@ import (
 
 // Server is a BGP server that manages peers.
 type Server struct {
-	mu    sync.Mutex
-	id    uint32
-	peers map[string]*peer
+	mu     sync.Mutex
+	id     uint32
+	logger Logger
+	peers  map[string]*peer
 
 	// control channels & run state
 	serving       bool
@@ -23,7 +24,7 @@ type Server struct {
 }
 
 // NewServer creates a new Server.
-func NewServer(routerID netip.Addr) (*Server, error) {
+func NewServer(routerID netip.Addr, options ...ServerOption) (*Server, error) {
 	if !routerID.Is4() {
 		return nil, errors.New("invalid router ID")
 	}
@@ -31,9 +32,13 @@ func NewServer(routerID netip.Addr) (*Server, error) {
 	s := &Server{
 		mu:            sync.Mutex{},
 		id:            binary.BigEndian.Uint32(routerID.AsSlice()),
+		logger:        defaultLogger,
 		peers:         make(map[string]*peer),
 		doneServingCh: make(chan struct{}),
 		closeCh:       make(chan struct{}),
+	}
+	for _, opt := range options {
+		opt(s)
 	}
 	return s, nil
 }
@@ -218,7 +223,7 @@ func (s *Server) AddPeer(config PeerConfig, plugin Plugin,
 	if exists {
 		return ErrPeerAlreadyExists
 	}
-	p := newPeer(config, s.id, plugin, o)
+	p := newPeer(config, s.id, s.logger, plugin, o)
 	if s.serving {
 		p.start()
 	}

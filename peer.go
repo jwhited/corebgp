@@ -21,6 +21,7 @@ const (
 type peer struct {
 	config  PeerConfig
 	id      uint32
+	logger  Logger
 	plugin  Plugin
 	options peerOptions
 
@@ -45,10 +46,11 @@ const (
 	in  = 1
 )
 
-func newPeer(config PeerConfig, id uint32, plugin Plugin, options peerOptions) *peer {
+func newPeer(config PeerConfig, id uint32, logger Logger, plugin Plugin, options peerOptions) *peer {
 	p := &peer{
 		config:            config,
 		id:                id,
+		logger:            logger,
 		plugin:            plugin,
 		options:           options,
 		inConnCh:          make(chan net.Conn),
@@ -89,7 +91,7 @@ func other(i int) int {
 }
 
 func (p *peer) logTransition(i int, from, to fsmState) {
-	logf("[%s] FSM-%s transition %s => %s", p.config.RemoteAddress,
+	p.logger.logf("[%s] FSM-%s transition %s => %s", p.config.RemoteAddress,
 		direction(i), from, to)
 }
 
@@ -206,7 +208,7 @@ func direction(i int) string {
 
 // handleError handles an error during fsm operation
 func (p *peer) handleError(i int, err error) {
-	logf("[%s] FSM-%s %s error: %v",
+	p.logger.logf("[%s] FSM-%s %s error: %v",
 		p.config.RemoteAddress, direction(i), p.fsmState[i], err)
 	var nerr *notificationError
 	if errors.As(err, &nerr) {
@@ -240,7 +242,7 @@ func (p *peer) updateStartupDelay() {
 
 	p.startupDelayTimer.Stop()
 	p.startupDelayTimer = time.NewTimer(p.startupDelay)
-	logf("[%s] damping peer for %s", p.config.RemoteAddress, p.startupDelay)
+	p.logger.logf("[%s] damping peer for %s", p.config.RemoteAddress, p.startupDelay)
 }
 
 // main run loop
@@ -257,7 +259,7 @@ func (p *peer) run() {
 		case <-p.closeCh:
 			return
 		case <-p.startupDelayTimer.C:
-			logf("[%s] startup delay timer expired, enabling peer",
+			p.logger.logf("[%s] startup delay timer expired, enabling peer",
 				p.config.RemoteAddress)
 			p.enableFSM(out, nil)
 			p.inHoldDown = false
