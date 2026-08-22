@@ -839,8 +839,40 @@ func (f *fsm) established() (fsmState, error) {
 		}()
 		handler := f.peer.plugin.OnEstablished(f.peer.config, writer)
 
+		// do send tasks in a separate goroutine from receive tasks
+		// do avoid hold time expired
+		sendErrCh := make(chan error)
+		recvErrCh := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case <-f.keepAliveTimer.C:
+					err := f.sendKeepAlive()
+					if err != nil {
+						sendErrCh <- fmt.Errorf("error sending keepAlive: %w", err)
+						return
+					}
+					resetKATimerCh <- struct{}{}
+				case <- recvErrCh:
+					// close sender if receiver terminates
+					return
+				}
+			}
+		}()
+
+		// notify sender when received terminates
+		defer func() {
+			select {
+			case recvErrCh <- struct{}{}:
+				return
+			default:
+			}
+		}()
+
 		for {
 			select {
+			case sendErr := <- sendErrCh:
+				return idleState, sendErr
 			case <-f.closeCh:
 				n := newNotification(NOTIF_CODE_CEASE, 0, nil)
 				f.sendNotification(n) // nolint: errcheck
@@ -849,12 +881,6 @@ func (f *fsm) established() (fsmState, error) {
 				n := newNotification(NOTIF_CODE_HOLD_TIMER_EXPIRED, 0, nil)
 				f.sendNotification(n) // nolint: errcheck
 				return idleState, newNotificationError(n, true)
-			case <-f.keepAliveTimer.C:
-				err := f.sendKeepAlive()
-				if err != nil {
-					return idleState, fmt.Errorf("error sending keepAlive: %w", err)
-				}
-				resetKATimerCh <- struct{}{}
 			case err := <-f.readerErrCh:
 				f.handleNotificationInErr(err)
 				return idleState, fmt.Errorf("error from reader: %w", err)
